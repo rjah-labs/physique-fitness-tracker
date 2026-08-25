@@ -1,6 +1,8 @@
-# Physique v0.1
+# Physique v0.2
 
 A mobile-first fitness tracking PWA for body measurements, workouts and goals. It ships with the full baseline check-in from 25 August 2026 and saves new check-ins locally on the device.
+
+v0.2 adds complete 14-field check-ins, editable history, progress charts, date-to-date comparisons, notes, safe deletion and a progress-photo interface prepared for private Supabase Storage.
 
 ## Run locally
 
