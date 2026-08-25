@@ -122,9 +122,7 @@ export const cloudFitnessRepository = {
     const {error}=await supabase.from("body_check_ins").delete().eq("id",entry.id); if(error) throw error;
   },
   async importLocal(userId:string) {
-    const existing=await this.list(); if(existing.length) return existing;
-    const local=fitnessRepository.list();
-    for(const entry of local) await this.save({...entry,id:entry.id.startsWith("baseline-")?crypto.randomUUID():entry.id},userId);
+    void userId;
     return this.list();
   },
   async uploadPhoto(entry:CheckIn,userId:string,angle:PhotoAngle,file:File) {
