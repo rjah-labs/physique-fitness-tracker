@@ -7,6 +7,7 @@ import {
 } from "../lib/fitness-repository";
 import { supabase } from "../lib/supabase";
 import type { User } from "@supabase/supabase-js";
+import { WorkoutArea } from "./workouts";
 
 type Tab = "Today" | "Measure" | "Train" | "Goals";
 type MeasureView = "History" | "Compare" | "Photos";
@@ -27,7 +28,7 @@ export default function Home() {
 function AuthScreen(){
   const [mode,setMode]=useState<"signin"|"signup">("signin");const [message,setMessage]=useState("");const [busy,setBusy]=useState(false);
   async function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setBusy(true);setMessage("");const data=new FormData(e.currentTarget);const email=String(data.get("email"));const password=String(data.get("password"));const result=mode==="signin"?await supabase.auth.signInWithPassword({email,password}):await supabase.auth.signUp({email,password,options:{emailRedirectTo:window.location.href}});setBusy(false);if(result.error)setMessage(result.error.message);else if(mode==="signup"&&!result.data.session)setMessage("Check your email to confirm your account.")}
-  return <main className="auth-shell"><section className="auth-card"><div className="brand-mark">P</div><p className="eyebrow">PHYSIQUE <span className="version">V0.3</span></p><h1>Your progress.<br/>Private and synced.</h1><p>Sign in to access your measurements and progress photos on any device.</p><form onSubmit={submit}><label>Email<input name="email" type="email" autoComplete="email" required/></label><label>Password<input name="password" type="password" minLength={6} autoComplete={mode==="signin"?"current-password":"new-password"} required/></label>{message&&<p className="auth-message" role="status">{message}</p>}<button className="primary" disabled={busy}>{busy?"Please wait…":mode==="signin"?"Sign in":"Create account"}</button></form><button className="auth-switch" onClick={()=>{setMode(mode==="signin"?"signup":"signin");setMessage("")}}>{mode==="signin"?"New here? Create an account":"Already have an account? Sign in"}</button></section></main>
+  return <main className="auth-shell"><section className="auth-card"><div className="brand-mark">P</div><p className="eyebrow">PHYSIQUE <span className="version">V0.4</span></p><h1>Your progress.<br/>Private and synced.</h1><p>Sign in to access your measurements, workouts and progress photos on any device.</p><form onSubmit={submit}><label>Email<input name="email" type="email" autoComplete="email" required/></label><label>Password<input name="password" type="password" minLength={6} autoComplete={mode==="signin"?"current-password":"new-password"} required/></label>{message&&<p className="auth-message" role="status">{message}</p>}<button className="primary" disabled={busy}>{busy?"Please wait…":mode==="signin"?"Sign in":"Create account"}</button></form><button className="auth-switch" onClick={()=>{setMode(mode==="signin"?"signup":"signin");setMessage("")}}>{mode==="signin"?"New here? Create an account":"Already have an account? Sign in"}</button></section></main>
 }
 
 function FitnessApp({user}:{user:User}) {
@@ -50,11 +51,11 @@ function FitnessApp({user}:{user:User}) {
   async function remove(entry:CheckIn){try{await cloudFitnessRepository.remove(entry);await refresh("Check-in removed")}catch(error){setNotice(error instanceof Error?error.message:"Unable to delete")}}
 
   return <main className="app-shell">
-    <header className="topbar"><div className="brand-mark">P</div><div><p className="eyebrow">PHYSIQUE <span className="version">V0.3</span></p><p className="date">{formatDate(latest.date, true)}</p></div><button className="avatar" aria-label="Sign out" title="Sign out" onClick={()=>supabase.auth.signOut()}>{(user.email||"U").slice(0,2).toUpperCase()}</button></header>
+    <header className="topbar"><div className="brand-mark">P</div><div><p className="eyebrow">PHYSIQUE <span className="version">V0.4</span></p><p className="date">{formatDate(latest.date, true)}</p></div><button className="avatar" aria-label="Sign out" title="Sign out" onClick={()=>supabase.auth.signOut()}>{(user.email||"U").slice(0,2).toUpperCase()}</button></header>
     <section className="hero"><p className="eyebrow">CURRENT WEIGHT</p><div className="weight-row"><strong>{latest.weight}</strong><span>kg</span></div><div className="target-track"><span style={{width:"72%"}}/></div><div className="target-copy"><span>{checkIns.length} {checkIns.length === 1 ? "check-in" : "check-ins"}</span><span>Next target · 100 kg</span></div></section>
     {tab === "Today" && <Dashboard latest={latest} count={checkIns.length} onLog={() => setEditing("new")} onMeasure={() => setTab("Measure")}/>} 
     {tab === "Measure" && <MeasurementsArea entries={checkIns} onAdd={() => setEditing("new")} onEdit={setEditing}/>} 
-    {tab === "Train" && <Placeholder kind="workouts"/>} {tab === "Goals" && <Placeholder kind="goals"/>}
+    {tab === "Train" && <WorkoutArea userId={user.id} onNotice={message=>{setNotice(message);window.setTimeout(()=>setNotice(""),2600)}}/>} {tab === "Goals" && <Placeholder kind="goals"/>}
     <nav className="bottom-nav" aria-label="Primary navigation">{(["Today","Measure","Train","Goals"] as Tab[]).map(item => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}><span aria-hidden="true">{item === "Today" ? "⌂" : item === "Measure" ? "◇" : item === "Train" ? "＋" : "◎"}</span>{item}</button>)}</nav>
     {editing && <CheckInSheet initial={editing === "new" ? latest : editing} isNew={editing === "new"} userId={user.id} onClose={() => setEditing(null)} onSave={save} onDelete={remove}/>}
     {notice && <div className="toast" role="status">{notice}</div>}
