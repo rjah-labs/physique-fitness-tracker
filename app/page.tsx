@@ -11,6 +11,19 @@ import { WorkoutArea } from "./workouts";
 
 type Tab = "Today" | "Measure" | "Train" | "Goals";
 type MeasureView = "History" | "Compare" | "Photos";
+type UserPreferences = {
+  measurement_interval_days: number | null;
+  photo_interval_days: number | null;
+  reminder_weekday: number;
+  units: "metric" | "imperial";
+};
+
+const defaultPreferences: UserPreferences = {
+  measurement_interval_days: 14,
+  photo_interval_days: 28,
+  reminder_weekday: 1,
+  units: "metric",
+};
 
 const formatDate = (date: string, long = false) => new Intl.DateTimeFormat("en-AU", long
   ? { day: "numeric", month: "long", year: "numeric" }
@@ -28,13 +41,14 @@ export default function Home() {
 function AuthScreen(){
   const [mode,setMode]=useState<"signin"|"signup">("signin");const [message,setMessage]=useState("");const [busy,setBusy]=useState(false);
   async function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setBusy(true);setMessage("");const data=new FormData(e.currentTarget);const email=String(data.get("email"));const password=String(data.get("password"));const result=mode==="signin"?await supabase.auth.signInWithPassword({email,password}):await supabase.auth.signUp({email,password,options:{emailRedirectTo:window.location.href}});setBusy(false);if(result.error)setMessage(result.error.message);else if(mode==="signup"&&!result.data.session)setMessage("Check your email to confirm your account.")}
-  return <main className="auth-shell"><section className="auth-card"><div className="brand-mark">P</div><p className="eyebrow">PHYSIQUE <span className="version">V0.4</span></p><h1>Your progress.<br/>Private and synced.</h1><p>Sign in to access your measurements, workouts and progress photos on any device.</p><form onSubmit={submit}><label>Email<input name="email" type="email" autoComplete="email" required/></label><label>Password<input name="password" type="password" minLength={6} autoComplete={mode==="signin"?"current-password":"new-password"} required/></label>{message&&<p className="auth-message" role="status">{message}</p>}<button className="primary" disabled={busy}>{busy?"Please wait…":mode==="signin"?"Sign in":"Create account"}</button></form><button className="auth-switch" onClick={()=>{setMode(mode==="signin"?"signup":"signin");setMessage("")}}>{mode==="signin"?"New here? Create an account":"Already have an account? Sign in"}</button></section></main>
+  return <main className="auth-shell"><section className="auth-card"><div className="brand-mark">P</div><p className="eyebrow">PHYSIQUE <span className="version">V0.5</span></p><h1>Your progress.<br/>Private and synced.</h1><p>Sign in to access your measurements, workouts and progress photos on any device.</p><form onSubmit={submit}><label>Email<input name="email" type="email" autoComplete="email" required/></label><label>Password<input name="password" type="password" minLength={6} autoComplete={mode==="signin"?"current-password":"new-password"} required/></label>{message&&<p className="auth-message" role="status">{message}</p>}<button className="primary" disabled={busy}>{busy?"Please wait…":mode==="signin"?"Sign in":"Create account"}</button></form><button className="auth-switch" onClick={()=>{setMode(mode==="signin"?"signup":"signin");setMessage("")}}>{mode==="signin"?"New here? Create an account":"Already have an account? Sign in"}</button></section></main>
 }
 
 function FitnessApp({user}:{user:User}) {
   const [tab, setTab] = useState<Tab>("Today");
   const [checkIns, setCheckIns] = useState<CheckIn[]>([baselineCheckIn]);
   const [editing, setEditing] = useState<CheckIn | null | "new">(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const latest = checkIns.at(-1) || baselineCheckIn;
 
@@ -52,15 +66,25 @@ function FitnessApp({user}:{user:User}) {
   async function uploadFor(entry:CheckIn,angle:PhotoAngle,file?:File){if(!file)return;try{setNotice("Uploading securely…");await cloudFitnessRepository.uploadPhoto(entry,user.id,angle,file);await refresh(`${angle[0].toUpperCase()+angle.slice(1)} photo uploaded`)}catch(error){notify(error instanceof Error?error.message:"Upload failed")}}
 
   return <main className="app-shell">
-    <header className="topbar"><div className="brand-mark">P</div><div><p className="eyebrow">PHYSIQUE <span className="version">V0.4</span></p><p className="date">{formatDate(latest.date, true)}</p></div><button className="avatar" aria-label="Sign out" title="Sign out" onClick={()=>supabase.auth.signOut()}>{(user.email||"U").slice(0,2).toUpperCase()}</button></header>
+    <header className="topbar"><div className="brand-mark">P</div><div><p className="eyebrow">PHYSIQUE <span className="version">V0.5</span></p><p className="date">{formatDate(latest.date, true)}</p></div><button className="avatar" aria-label="Open account settings" title="Account settings" onClick={()=>setSettingsOpen(true)}>{(user.email||"U").slice(0,2).toUpperCase()}</button></header>
     <section className="hero"><p className="eyebrow">CURRENT WEIGHT</p><div className="weight-row"><strong>{latest.weight}</strong><span>kg</span></div><div className="target-track"><span style={{width:"72%"}}/></div><div className="target-copy"><span>{checkIns.length} {checkIns.length === 1 ? "check-in" : "check-ins"}</span><span>Next target · 100 kg</span></div></section>
     {tab === "Today" && <Dashboard latest={latest} count={checkIns.length} onLog={() => setEditing("new")} onMeasure={() => setTab("Measure")}/>} 
     {tab === "Measure" && <MeasurementsArea entries={checkIns} onAdd={() => setEditing("new")} onEdit={setEditing} onPhotoUpload={uploadFor}/>}
     {tab === "Train" && <WorkoutArea userId={user.id} onNotice={message=>{setNotice(message);window.setTimeout(()=>setNotice(""),2600)}}/>} {tab === "Goals" && <Placeholder kind="goals"/>}
     <nav className="bottom-nav" aria-label="Primary navigation">{(["Today","Measure","Train","Goals"] as Tab[]).map(item => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}><span aria-hidden="true">{item === "Today" ? "⌂" : item === "Measure" ? "◇" : item === "Train" ? "＋" : "◎"}</span>{item}</button>)}</nav>
     {editing && <CheckInSheet initial={editing === "new" ? latest : editing} isNew={editing === "new"} userId={user.id} onClose={() => setEditing(null)} onSave={save} onDelete={remove}/>}
+    {settingsOpen && <SettingsSheet user={user} onClose={()=>setSettingsOpen(false)} onNotice={notify}/>}
     {notice && <div className="toast" role="status">{notice}</div>}
   </main>;
+}
+
+function SettingsSheet({user,onClose,onNotice}:{user:User;onClose:()=>void;onNotice:(message:string)=>void}) {
+  const [preferences,setPreferences]=useState<UserPreferences>(defaultPreferences);
+  const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);
+  useEffect(()=>{let active=true;supabase.from("user_preferences").select("measurement_interval_days,photo_interval_days,reminder_weekday,units").eq("user_id",user.id).maybeSingle().then(({data,error})=>{if(!active)return;if(error)onNotice(error.message);if(data)setPreferences(data as UserPreferences);setLoading(false)});return()=>{active=false}},[user.id]);
+  function setIntervalPreference(key:"measurement_interval_days"|"photo_interval_days",value:string){setPreferences(current=>({...current,[key]:value==="off"?null:Number(value)}))}
+  async function savePreferences(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setSaving(true);const {error}=await supabase.from("user_preferences").upsert({user_id:user.id,...preferences,updated_at:new Date().toISOString()},{onConflict:"user_id"});setSaving(false);if(error){onNotice(error.message);return}onNotice("Settings securely synced");onClose()}
+  return <div className="sheet-backdrop settings-backdrop" onClick={onClose}><form className="sheet settings-sheet" onClick={event=>event.stopPropagation()} onSubmit={savePreferences}><div className="sheet-handle"/><div className="sheet-head"><div><p className="eyebrow">YOUR ACCOUNT</p><h2>Settings</h2></div><button type="button" onClick={onClose} aria-label="Close settings">×</button></div><div className="settings-scroll">{loading?<p className="settings-loading">Loading your preferences…</p>:<><section className="account-summary"><div className="avatar large">{(user.email||"U").slice(0,2).toUpperCase()}</div><div><strong>{user.email}</strong><span>Signed in securely</span></div></section><section className="settings-section"><div><p className="eyebrow">CHECK-IN RHYTHM</p><h3>Progress reminders</h3><p>Choose how often Physique should prompt you. Device notifications will be enabled in the next reminder release.</p></div><label>Measurements<select value={preferences.measurement_interval_days??"off"} onChange={event=>setIntervalPreference("measurement_interval_days",event.target.value)}><option value="off">Off</option><option value="7">Every week</option><option value="14">Every 2 weeks</option><option value="30">Every month</option></select></label><label>Progress photos<select value={preferences.photo_interval_days??"off"} onChange={event=>setIntervalPreference("photo_interval_days",event.target.value)}><option value="off">Off</option><option value="14">Every 2 weeks</option><option value="28">Every 4 weeks</option><option value="42">Every 6 weeks</option><option value="56">Every 8 weeks</option></select></label><label>Preferred day<select value={preferences.reminder_weekday} onChange={event=>setPreferences(current=>({...current,reminder_weekday:Number(event.target.value)}))}>{["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map((day,index)=><option value={index} key={day}>{day}</option>)}</select></label></section><section className="settings-section"><div><p className="eyebrow">DISPLAY</p><h3>Measurement units</h3><p>Your existing records remain unchanged. Imperial display conversion is coming in a later update.</p></div><label>Preferred units<select value={preferences.units} onChange={event=>setPreferences(current=>({...current,units:event.target.value as UserPreferences["units"]}))}><option value="metric">Metric · kg and cm</option><option value="imperial">Imperial · lb and in</option></select></label></section><section className="privacy-card"><span>⌾</span><div><strong>Private by design</strong><p>Your settings, measurements and photos are protected by your Supabase account.</p></div></section></>}</div><div className="settings-actions"><button className="signout-button" type="button" onClick={()=>supabase.auth.signOut()}>Sign out</button><button className="primary" type="submit" disabled={loading||saving}>{saving?"Saving…":"Save settings"}</button></div></form></div>;
 }
 
 function Dashboard({latest,count,onLog,onMeasure}:{latest:CheckIn;count:number;onLog:()=>void;onMeasure:()=>void}) {
