@@ -11,11 +11,13 @@ import { WorkoutArea } from "./workouts";
 
 type Tab = "Today" | "Measure" | "Train" | "Goals";
 type MeasureView = "History" | "Compare" | "Photos";
+type ColorPalette = "lime" | "ocean" | "berry" | "ember";
 type UserPreferences = {
   measurement_interval_days: number | null;
   photo_interval_days: number | null;
   reminder_weekday: number;
   units: "metric" | "imperial";
+  color_palette: ColorPalette;
 };
 
 const defaultPreferences: UserPreferences = {
@@ -23,6 +25,7 @@ const defaultPreferences: UserPreferences = {
   photo_interval_days: 28,
   reminder_weekday: 1,
   units: "metric",
+  color_palette: "lime",
 };
 
 const formatDate = (date: string, long = false) => new Intl.DateTimeFormat("en-AU", long
@@ -49,11 +52,13 @@ function FitnessApp({user}:{user:User}) {
   const [checkIns, setCheckIns] = useState<CheckIn[]>([baselineCheckIn]);
   const [editing, setEditing] = useState<CheckIn | null | "new">(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [colorPalette, setColorPalette] = useState<ColorPalette>("lime");
   const [notice, setNotice] = useState("");
   const latest = checkIns.at(-1) || baselineCheckIn;
 
   useEffect(() => {
     cloudFitnessRepository.importLocal(user.id).then(setCheckIns).catch(error=>notify(error.message));
+    supabase.from("user_preferences").select("color_palette").eq("user_id",user.id).maybeSingle().then(({data})=>{if(data?.color_palette)setColorPalette(data.color_palette as ColorPalette)});
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => undefined);
   }, []);
 
@@ -65,7 +70,7 @@ function FitnessApp({user}:{user:User}) {
   async function remove(entry:CheckIn){try{await cloudFitnessRepository.remove(entry);await refresh("Check-in removed")}catch(error){notify(error instanceof Error?error.message:"Unable to delete")}}
   async function uploadFor(entry:CheckIn,angle:PhotoAngle,file?:File){if(!file)return;try{setNotice("Uploading securely…");await cloudFitnessRepository.uploadPhoto(entry,user.id,angle,file);await refresh(`${angle[0].toUpperCase()+angle.slice(1)} photo uploaded`)}catch(error){notify(error instanceof Error?error.message:"Upload failed")}}
 
-  return <main className="app-shell">
+  return <main className="app-shell" data-palette={colorPalette}>
     <header className="topbar"><div className="brand-mark">P</div><div><p className="eyebrow">PHYSIQUE <span className="version">V0.5</span></p><p className="date">{formatDate(latest.date, true)}</p></div><button className="avatar" aria-label="Open account settings" title="Account settings" onClick={()=>setSettingsOpen(true)}>{(user.email||"U").slice(0,2).toUpperCase()}</button></header>
     <section className="hero"><p className="eyebrow">CURRENT WEIGHT</p><div className="weight-row"><strong>{latest.weight}</strong><span>kg</span></div><div className="target-track"><span style={{width:"72%"}}/></div><div className="target-copy"><span>{checkIns.length} {checkIns.length === 1 ? "check-in" : "check-ins"}</span><span>Next target · 100 kg</span></div></section>
     {tab === "Today" && <Dashboard latest={latest} count={checkIns.length} onLog={() => setEditing("new")} onMeasure={() => setTab("Measure")}/>} 
@@ -73,18 +78,19 @@ function FitnessApp({user}:{user:User}) {
     {tab === "Train" && <WorkoutArea userId={user.id} onNotice={message=>{setNotice(message);window.setTimeout(()=>setNotice(""),2600)}}/>} {tab === "Goals" && <Placeholder kind="goals"/>}
     <nav className="bottom-nav" aria-label="Primary navigation">{(["Today","Measure","Train","Goals"] as Tab[]).map(item => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}><span aria-hidden="true">{item === "Today" ? "⌂" : item === "Measure" ? "◇" : item === "Train" ? "＋" : "◎"}</span>{item}</button>)}</nav>
     {editing && <CheckInSheet initial={editing === "new" ? latest : editing} isNew={editing === "new"} userId={user.id} onClose={() => setEditing(null)} onSave={save} onDelete={remove}/>}
-    {settingsOpen && <SettingsSheet user={user} onClose={()=>setSettingsOpen(false)} onNotice={notify}/>}
+    {settingsOpen && <SettingsSheet user={user} colorPalette={colorPalette} onPaletteChange={setColorPalette} onClose={()=>setSettingsOpen(false)} onNotice={notify}/>}
     {notice && <div className="toast" role="status">{notice}</div>}
   </main>;
 }
 
-function SettingsSheet({user,onClose,onNotice}:{user:User;onClose:()=>void;onNotice:(message:string)=>void}) {
-  const [preferences,setPreferences]=useState<UserPreferences>(defaultPreferences);
+function SettingsSheet({user,colorPalette,onPaletteChange,onClose,onNotice}:{user:User;colorPalette:ColorPalette;onPaletteChange:(palette:ColorPalette)=>void;onClose:()=>void;onNotice:(message:string)=>void}) {
+  const [preferences,setPreferences]=useState<UserPreferences>({...defaultPreferences,color_palette:colorPalette});
   const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);
-  useEffect(()=>{let active=true;supabase.from("user_preferences").select("measurement_interval_days,photo_interval_days,reminder_weekday,units").eq("user_id",user.id).maybeSingle().then(({data,error})=>{if(!active)return;if(error)onNotice(error.message);if(data)setPreferences(data as UserPreferences);setLoading(false)});return()=>{active=false}},[user.id]);
+  useEffect(()=>{let active=true;supabase.from("user_preferences").select("measurement_interval_days,photo_interval_days,reminder_weekday,units,color_palette").eq("user_id",user.id).maybeSingle().then(({data,error})=>{if(!active)return;if(error)onNotice(error.message);if(data){setPreferences(data as UserPreferences);onPaletteChange(data.color_palette as ColorPalette)}setLoading(false)});return()=>{active=false}},[user.id]);
   function setIntervalPreference(key:"measurement_interval_days"|"photo_interval_days",value:string){setPreferences(current=>({...current,[key]:value==="off"?null:Number(value)}))}
   async function savePreferences(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setSaving(true);const {error}=await supabase.from("user_preferences").upsert({user_id:user.id,...preferences,updated_at:new Date().toISOString()},{onConflict:"user_id"});setSaving(false);if(error){onNotice(error.message);return}onNotice("Settings securely synced");onClose()}
-  return <div className="sheet-backdrop settings-backdrop" onClick={onClose}><form className="sheet settings-sheet" onClick={event=>event.stopPropagation()} onSubmit={savePreferences}><div className="sheet-handle"/><div className="sheet-head"><div><p className="eyebrow">YOUR ACCOUNT</p><h2>Settings</h2></div><button type="button" onClick={onClose} aria-label="Close settings">×</button></div><div className="settings-scroll">{loading?<p className="settings-loading">Loading your preferences…</p>:<><section className="account-summary"><div className="avatar large">{(user.email||"U").slice(0,2).toUpperCase()}</div><div><strong>{user.email}</strong><span>Signed in securely</span></div></section><section className="settings-section"><div><p className="eyebrow">CHECK-IN RHYTHM</p><h3>Progress reminders</h3><p>Choose how often Physique should prompt you. Device notifications will be enabled in the next reminder release.</p></div><label>Measurements<select value={preferences.measurement_interval_days??"off"} onChange={event=>setIntervalPreference("measurement_interval_days",event.target.value)}><option value="off">Off</option><option value="7">Every week</option><option value="14">Every 2 weeks</option><option value="30">Every month</option></select></label><label>Progress photos<select value={preferences.photo_interval_days??"off"} onChange={event=>setIntervalPreference("photo_interval_days",event.target.value)}><option value="off">Off</option><option value="14">Every 2 weeks</option><option value="28">Every 4 weeks</option><option value="42">Every 6 weeks</option><option value="56">Every 8 weeks</option></select></label><label>Preferred day<select value={preferences.reminder_weekday} onChange={event=>setPreferences(current=>({...current,reminder_weekday:Number(event.target.value)}))}>{["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map((day,index)=><option value={index} key={day}>{day}</option>)}</select></label></section><section className="settings-section"><div><p className="eyebrow">DISPLAY</p><h3>Measurement units</h3><p>Your existing records remain unchanged. Imperial display conversion is coming in a later update.</p></div><label>Preferred units<select value={preferences.units} onChange={event=>setPreferences(current=>({...current,units:event.target.value as UserPreferences["units"]}))}><option value="metric">Metric · kg and cm</option><option value="imperial">Imperial · lb and in</option></select></label></section><section className="privacy-card"><span>⌾</span><div><strong>Private by design</strong><p>Your settings, measurements and photos are protected by your Supabase account.</p></div></section></>}</div><div className="settings-actions"><button className="signout-button" type="button" onClick={()=>supabase.auth.signOut()}>Sign out</button><button className="primary" type="submit" disabled={loading||saving}>{saving?"Saving…":"Save settings"}</button></div></form></div>;
+  const palettes:Array<{id:ColorPalette;label:string;colors:string[]}>= [{id:"lime",label:"Volt",colors:["#d9ff56","#91d9ff","#ff9f86"]},{id:"ocean",label:"Ocean",colors:["#58e6d9","#7eb7ff","#b9a4ff"]},{id:"berry",label:"Berry",colors:["#f094ff","#ff9fb8","#a9b8ff"]},{id:"ember",label:"Ember",colors:["#ffbd59","#ff846d","#e8d071"]}];
+  return <div className="sheet-backdrop settings-backdrop" onClick={onClose}><form className="sheet settings-sheet" onClick={event=>event.stopPropagation()} onSubmit={savePreferences}><div className="sheet-handle"/><div className="sheet-head"><div><p className="eyebrow">YOUR ACCOUNT</p><h2>Settings</h2></div><button type="button" onClick={onClose} aria-label="Close settings">×</button></div><div className="settings-scroll">{loading?<p className="settings-loading">Loading your preferences…</p>:<><section className="account-summary"><div className="avatar large">{(user.email||"U").slice(0,2).toUpperCase()}</div><div><strong>{user.email}</strong><span>Signed in securely</span></div></section><section className="settings-section"><div><p className="eyebrow">CHECK-IN RHYTHM</p><h3>Progress reminders</h3><p>Choose how often Physique should prompt you. Device notifications will be enabled in the next reminder release.</p></div><label>Measurements<select value={preferences.measurement_interval_days??"off"} onChange={event=>setIntervalPreference("measurement_interval_days",event.target.value)}><option value="off">Off</option><option value="7">Every week</option><option value="14">Every 2 weeks</option><option value="30">Every month</option></select></label><label>Progress photos<select value={preferences.photo_interval_days??"off"} onChange={event=>setIntervalPreference("photo_interval_days",event.target.value)}><option value="off">Off</option><option value="14">Every 2 weeks</option><option value="28">Every 4 weeks</option><option value="42">Every 6 weeks</option><option value="56">Every 8 weeks</option></select></label><label>Preferred day<select value={preferences.reminder_weekday} onChange={event=>setPreferences(current=>({...current,reminder_weekday:Number(event.target.value)}))}>{["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map((day,index)=><option value={index} key={day}>{day}</option>)}</select></label></section><section className="settings-section"><div><p className="eyebrow">APPEARANCE</p><h3>Colour palette</h3><p>Choose the accent colours used throughout your app.</p></div><div className="palette-options">{palettes.map(palette=><button type="button" key={palette.id} className={preferences.color_palette===palette.id?"selected":""} aria-pressed={preferences.color_palette===palette.id} onClick={()=>{setPreferences(current=>({...current,color_palette:palette.id}));onPaletteChange(palette.id)}}><span>{palette.colors.map(color=><i key={color} style={{background:color}}/>)}</span><strong>{palette.label}</strong></button>)}</div></section><section className="settings-section"><div><p className="eyebrow">DISPLAY</p><h3>Measurement units</h3><p>Your existing records remain unchanged. Imperial display conversion is coming in a later update.</p></div><label>Preferred units<select value={preferences.units} onChange={event=>setPreferences(current=>({...current,units:event.target.value as UserPreferences["units"]}))}><option value="metric">Metric · kg and cm</option><option value="imperial">Imperial · lb and in</option></select></label></section><section className="privacy-card"><span>⌾</span><div><strong>Private by design</strong><p>Your settings, measurements and photos are protected by your Supabase account.</p></div></section></>}</div><div className="settings-actions"><button className="signout-button" type="button" onClick={()=>supabase.auth.signOut()}>Sign out</button><button className="primary" type="submit" disabled={loading||saving}>{saving?"Saving…":"Save settings"}</button></div></form></div>;
 }
 
 function Dashboard({latest,count,onLog,onMeasure}:{latest:CheckIn;count:number;onLog:()=>void;onMeasure:()=>void}) {
