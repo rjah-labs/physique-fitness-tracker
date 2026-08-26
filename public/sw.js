@@ -1,6 +1,7 @@
-const CACHE="physique-v0.8.0";
+const CACHE="physique-v0.8.1";
 self.addEventListener("install",event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(["./","./manifest.webmanifest"]))));
 self.addEventListener("activate",event=>event.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))),self.clients.claim()])));
 self.addEventListener("message",event=>{if(event.data?.type==="SKIP_WAITING")self.skipWaiting()});
-self.addEventListener("notificationclick",event=>{event.notification.close();event.waitUntil(clients.matchAll({type:"window",includeUncontrolled:true}).then(windows=>windows[0]?windows[0].focus():clients.openWindow("./")))});
+self.addEventListener("push",event=>{let data={title:"Physique reminder",body:"Open Physique to review your schedule.",url:"./",tag:"physique-reminder"};try{data={...data,...event.data.json()}}catch{}event.waitUntil(self.registration.showNotification(data.title,{body:data.body,icon:"./icon-192.png",badge:"./icon-192.png",tag:data.tag,data:{url:data.url}}))});
+self.addEventListener("notificationclick",event=>{event.notification.close();const url=event.notification.data?.url||"./";event.waitUntil(clients.matchAll({type:"window",includeUncontrolled:true}).then(windows=>{const existing=windows[0];if(existing){existing.navigate(url);return existing.focus()}return clients.openWindow(url)}))});
 self.addEventListener("fetch",event=>{if(event.request.method!=="GET")return;event.respondWith(fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response}).catch(()=>caches.match(event.request).then(response=>response||caches.match("./"))))});
