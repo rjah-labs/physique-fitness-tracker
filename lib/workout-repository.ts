@@ -2,7 +2,7 @@ import {supabase} from "./supabase";
 import {exerciseCatalog,type Exercise} from "./exercise-catalog";
 
 export type LoggedSet={weight:number;reps:number;done:boolean};
-export type ActiveExercise={exercise:Exercise;sets:LoggedSet[]};
+export type ActiveExercise={exercise:Exercise;sets:LoggedSet[];previousSets?:Array<{weight:number;reps:number}>};
 export type WorkoutHistory={id:string;name:string;startedAt:string;completedAt:string;setCount:number;volume:number;exerciseNames:string[]};
 export type TemplateExercise={exercise:Exercise;targetSets:number;targetReps:string};
 export type WorkoutTemplate={id:string;name:string;notes:string;items:TemplateExercise[];createdAt:string;updatedAt:string};
@@ -34,5 +34,6 @@ export const workoutRepository={
   return id;
  },
  async deleteTemplate(id:string){const {error}=await supabase.from("workout_templates").delete().eq("id",id);if(error)throw error},
+ async previousSets(exerciseIds:string[]){const pairs=await Promise.all(exerciseIds.map(async id=>{const {data}=await supabase.from("workout_exercises").select("workout_sets(weight_kg,reps,completed),workouts!inner(completed_at)").eq("exercise_id",id).not("workouts.completed_at","is",null).order("completed_at",{referencedTable:"workouts",ascending:false}).limit(1).maybeSingle();const sets=((data as any)?.workout_sets||[]).filter((set:any)=>set.completed).map((set:any)=>({weight:Number(set.weight_kg||0),reps:Number(set.reps||0)}));return [id,sets] as const}));return Object.fromEntries(pairs) as Record<string,Array<{weight:number;reps:number}>>},
  exercise(id:string){return exerciseCatalog.find(e=>e.id===id)}
 };
