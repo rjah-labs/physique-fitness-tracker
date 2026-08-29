@@ -1,0 +1,42 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabase";
+
+type Profile={experience_level:"beginner"|"intermediate"|"advanced";training_days:number;session_minutes:number;training_style:"balanced"|"strength"|"hypertrophy"|"mixed";equipment:string[];priority_muscles:string[];preferred_exercises:string[];excluded_exercises:string[];current_routine:string|null;limitations:string|null;limitations_reviewed:boolean};
+const empty:Profile={experience_level:"beginner",training_days:3,session_minutes:60,training_style:"balanced",equipment:[],priority_muscles:[],preferred_exercises:[],excluded_exercises:[],current_routine:null,limitations:null,limitations_reviewed:false};
+const equipment=["Commercial gym","Barbell & rack","Dumbbells","Cables","Machines","Bands","Bodyweight","Cardio equipment"];
+const muscles=["Chest","Back","Shoulders","Arms","Glutes","Quads","Hamstrings","Calves","Core"];
+const split=(value:string)=>value.split(",").map(item=>item.trim()).filter(Boolean);
+
+export function ProgramProfileCard({userId,hasPrimaryGoal,hasWorkoutHistory,onNotice}:{userId:string;hasPrimaryGoal:boolean;hasWorkoutHistory:boolean;onNotice:(message:string)=>void}){
+  const [profile,setProfile]=useState<Profile|null>(null);const [draft,setDraft]=useState<Profile>(empty);const [open,setOpen]=useState(false);const [busy,setBusy]=useState(false);const [loading,setLoading]=useState(true);
+  async function load(){setLoading(true);const {data,error}=await supabase.from("program_profiles").select("experience_level,training_days,session_minutes,training_style,equipment,priority_muscles,preferred_exercises,excluded_exercises,current_routine,limitations,limitations_reviewed").eq("user_id",userId).maybeSingle();setLoading(false);if(error){onNotice(error.message);return}setProfile(data as Profile|null)}
+  useEffect(()=>{load()},[userId]);
+  const required=useMemo(()=>[
+    {label:"Primary goal selected",done:hasPrimaryGoal},
+    {label:"Training schedule set",done:Boolean(profile?.training_days&&profile?.session_minutes)},
+    {label:"Available equipment chosen",done:Boolean(profile?.equipment.length)},
+    {label:"Exercise preferences reviewed",done:Boolean(profile)},
+    {label:"Limitations reviewed",done:Boolean(profile?.limitations_reviewed)},
+  ],[profile,hasPrimaryGoal]);
+  const ready=required.every(item=>item.done);const complete=required.filter(item=>item.done).length;
+  function start(){setDraft(profile?{...profile,equipment:[...profile.equipment],priority_muscles:[...profile.priority_muscles],preferred_exercises:[...profile.preferred_exercises],excluded_exercises:[...profile.excluded_exercises]}:{...empty,equipment:[],priority_muscles:[],preferred_exercises:[],excluded_exercises:[]});setOpen(true)}
+  function toggle(field:"equipment"|"priority_muscles",value:string){setDraft(current=>({...current,[field]:current[field].includes(value)?current[field].filter(item=>item!==value):[...current[field],value]}))}
+  async function save(event:React.FormEvent<HTMLFormElement>){event.preventDefault();if(!draft.equipment.length){onNotice("Choose at least one type of equipment");return}setBusy(true);const excluded=new Set(draft.excluded_exercises.map(item=>item.toLowerCase()));const clean={...draft,preferred_exercises:draft.preferred_exercises.filter(item=>!excluded.has(item.toLowerCase())),current_routine:draft.current_routine?.trim()||null,limitations:draft.limitations?.trim()||null};const {error}=await supabase.from("program_profiles").upsert({user_id:userId,...clean,updated_at:new Date().toISOString()},{onConflict:"user_id"});setBusy(false);if(error){onNotice(error.message);return}setOpen(false);onNotice("Program profile securely saved");load()}
+  return <>
+    <section className={`program-readiness ${ready?"ready":""}`}><header><div><p className="eyebrow">PROGRAM READINESS</p><h2>{ready?"Ready for a draft program.":"Build your training brief."}</h2></div><strong>{loading?"…":`${complete}/5`}</strong></header><p className="program-intro">Your goals describe the destination. This profile tells a future program builder what is practical for you.</p><div className="readiness-list">{required.map(item=><span className={item.done?"done":""} key={item.label}><b>{item.done?"✓":"○"}</b>{item.label}</span>)}<span className={hasWorkoutHistory?"done optional":"optional"}><b>{hasWorkoutHistory?"✓":"○"}</b>Workout history <small>optional</small></span></div><button className="program-edit" onClick={start}>{profile?"Review program profile":"Set up program profile"} →</button>{ready&&<p className="program-ready-note">This is enough information for the next stage to create a reviewable plan—not an automatic medical or injury prescription.</p>}</section>
+    {open&&<div className="mini-picker program-dialog"><form onSubmit={save}><header><div><p className="eyebrow">PROGRAM PROFILE</p><h2>Your training setup.</h2></div><button type="button" onClick={()=>setOpen(false)}>×</button></header>
+      <div className="program-pair"><label>Experience<select value={draft.experience_level} onChange={e=>setDraft({...draft,experience_level:e.target.value as Profile["experience_level"]})}><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label><label>Training style<select value={draft.training_style} onChange={e=>setDraft({...draft,training_style:e.target.value as Profile["training_style"]})}><option value="balanced">Balanced</option><option value="strength">Strength</option><option value="hypertrophy">Muscle growth</option><option value="mixed">Mixed performance</option></select></label></div>
+      <div className="program-pair"><label>Days each week<input type="number" inputMode="numeric" min="1" max="7" value={draft.training_days} onChange={e=>setDraft({...draft,training_days:Number(e.target.value)})} required/></label><label>Minutes per session<input type="number" inputMode="numeric" min="20" max="240" step="5" value={draft.session_minutes} onChange={e=>setDraft({...draft,session_minutes:Number(e.target.value)})} required/></label></div>
+      <fieldset><legend>Equipment available</legend><div className="profile-chips">{equipment.map(item=><button className={draft.equipment.includes(item)?"selected":""} type="button" key={item} onClick={()=>toggle("equipment",item)}>{draft.equipment.includes(item)?"✓ ":""}{item}</button>)}</div></fieldset>
+      <fieldset><legend>Priority muscles <span>optional</span></legend><div className="profile-chips">{muscles.map(item=><button className={draft.priority_muscles.includes(item)?"selected":""} type="button" key={item} onClick={()=>toggle("priority_muscles",item)}>{item}</button>)}</div></fieldset>
+      <label>Exercises you enjoy <span>optional, separate with commas</span><textarea rows={2} value={draft.preferred_exercises.join(", ")} onChange={e=>setDraft({...draft,preferred_exercises:split(e.target.value)})} placeholder="Bench press, leg press…"/></label>
+      <label>Exercises to exclude <span>optional, separate with commas</span><textarea rows={2} value={draft.excluded_exercises.join(", ")} onChange={e=>setDraft({...draft,excluded_exercises:split(e.target.value)})} placeholder="Anything you do not want included…"/></label>
+      <label>Current routine <span>optional</span><textarea rows={3} maxLength={2000} value={draft.current_routine||""} onChange={e=>setDraft({...draft,current_routine:e.target.value})} placeholder="Describe what you currently train…"/></label>
+      <label>Limitations or movements to avoid <span>optional</span><textarea rows={3} maxLength={2000} value={draft.limitations||""} onChange={e=>setDraft({...draft,limitations:e.target.value})} placeholder="Information you want considered when choosing exercises…"/></label>
+      <label className="review-check"><input type="checkbox" checked={draft.limitations_reviewed} onChange={e=>setDraft({...draft,limitations_reviewed:e.target.checked})}/><span>I have reviewed this section, including if I have no limitations.</span></label>
+      <div className="goal-boundary"><strong>Training context only</strong><p>Physique uses this information to avoid unsuitable choices. It does not diagnose injuries or prescribe rehabilitation. Seek qualified advice for pain or injury.</p></div><button className="primary" disabled={busy}>{busy?"Saving…":"Save program profile"}</button>
+    </form></div>}
+  </>;
+}
