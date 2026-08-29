@@ -2,10 +2,27 @@ import {supabase} from "./supabase";
 import {exerciseCatalog,type Exercise} from "./exercise-catalog";
 
 export type LoggedSet={weight:number;reps:number;done:boolean};
-export type ActiveExercise={exercise:Exercise;sets:LoggedSet[];previousSets?:Array<{weight:number;reps:number}>};
+export type ActiveExercise={exercise:Exercise;sets:LoggedSet[];previousSets?:Array<{weight:number;reps:number}>;targetSets?:number;targetReps?:string};
 export type WorkoutHistory={id:string;name:string;startedAt:string;completedAt:string;setCount:number;volume:number;exerciseNames:string[]};
 export type TemplateExercise={exercise:Exercise;targetSets:number;targetReps:string};
 export type WorkoutTemplate={id:string;name:string;notes:string;items:TemplateExercise[];createdAt:string;updatedAt:string};
+
+export type ProgressionSuggestion={kind:"baseline"|"build-reps"|"add-load"|"recover";title:string;detail:string;suggestedWeight?:number};
+
+export function progressionSuggestion(item:ActiveExercise):ProgressionSuggestion{
+ const previous=item.previousSets||[],targetSets=item.targetSets||item.sets.length;
+ const repTargets=(item.targetReps||"").match(/\d+/g)?.map(Number)||[];
+ const minimum=repTargets[0]||item.sets[0]?.reps||8,maximum=repTargets.at(-1)||minimum;
+ if(!previous.length)return{kind:"baseline",title:"Establish your baseline",detail:`Choose a controlled load you can complete for ${targetSets} × ${item.targetReps||minimum}.`};
+ const working=previous.filter(set=>set.weight>0),weight=working[0]?.weight||0;
+ const allSetsCompleted=previous.length>=targetSets;
+ const allAtMaximum=allSetsCompleted&&previous.slice(0,targetSets).every(set=>set.reps>=maximum);
+ const allAtMinimum=allSetsCompleted&&previous.slice(0,targetSets).every(set=>set.reps>=minimum);
+ if(allAtMaximum&&weight>0){const suggested=Math.round((weight+2.5)*2)/2;return{kind:"add-load",title:`Consider ${suggested} kg`,detail:`You reached the top of the ${item.targetReps||minimum} rep range last time. The suggested increase is optional.`,suggestedWeight:suggested}}
+ if(allAtMaximum)return{kind:"build-reps",title:"Add a little difficulty",detail:"You reached the top of the rep range. Consider one extra rep, a slower tempo, or a small external load if appropriate."};
+ if(allAtMinimum)return{kind:"build-reps",title:"Build reps before load",detail:`Repeat ${weight?`${weight} kg`:"the same load"} and work towards ${maximum} reps with controlled form.`};
+ return{kind:"recover",title:"Consolidate this load",detail:`Repeat or reduce the load until you can complete ${targetSets} sets of at least ${minimum} controlled reps.`};
+}
 
 export const workoutRepository={
  async finish(userId:string,name:string,items:ActiveExercise[],startedAt:string,program?:{day:number;activatedAt:string}){
