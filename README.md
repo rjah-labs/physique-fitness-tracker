@@ -1,6 +1,6 @@
 # Physique v0.2
 
-A mobile-first fitness tracking PWA for body measurements, workouts and structured goals. Goals can track bodyweight, body size, strength, exercise performance or weekly training consistency. Private user data is synced through Supabase.
+A mobile-first fitness tracking PWA for body measurements, workouts and structured goals. Goals can track bodyweight, body size, strength, exercise performance or weekly training consistency, with editable targets, primary focus and trade-off guidance. Private user data is synced through Supabase.
 
 v0.2 adds complete 14-field check-ins, editable history, progress charts, date-to-date comparisons, notes, safe deletion and a progress-photo interface prepared for private Supabase Storage.
 
