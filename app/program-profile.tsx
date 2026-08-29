@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { ProgramGenerator } from "./program-generator";
 
 type Profile={experience_level:"beginner"|"intermediate"|"advanced";training_days:number;session_minutes:number;training_style:"balanced"|"strength"|"hypertrophy"|"mixed";equipment:string[];priority_muscles:string[];preferred_exercises:string[];excluded_exercises:string[];current_routine:string|null;limitations:string|null;limitations_reviewed:boolean};
 const empty:Profile={experience_level:"beginner",training_days:3,session_minutes:60,training_style:"balanced",equipment:[],priority_muscles:[],preferred_exercises:[],excluded_exercises:[],current_routine:null,limitations:null,limitations_reviewed:false};
@@ -38,5 +39,6 @@ export function ProgramProfileCard({userId,hasPrimaryGoal,hasWorkoutHistory,onNo
       <label className="review-check"><input type="checkbox" checked={draft.limitations_reviewed} onChange={e=>setDraft({...draft,limitations_reviewed:e.target.checked})}/><span>I have reviewed this section, including if I have no limitations.</span></label>
       <div className="goal-boundary"><strong>Training context only</strong><p>Physique uses this information to avoid unsuitable choices. It does not diagnose injuries or prescribe rehabilitation. Seek qualified advice for pain or injury.</p></div><button className="primary" disabled={busy}>{busy?"Saving…":"Save program profile"}</button>
     </form></div>}
+    <ProgramGenerator userId={userId} profile={profile} ready={ready} onNotice={onNotice}/>
   </>;
 }
