@@ -11,7 +11,7 @@ type GoalStatus="active"|"completed"|"paused"|"archived";
 type Goal={id:string;goal_type:GoalType;metric:string;label:string;start_value:number;target_value:number;unit:"kg"|"cm"|"reps"|"sessions"|"minutes"|"km";priority:"primary"|"secondary";target_date:string|null;related_exercise_id:string|null;target_reps:number|null;notes:string|null;evaluation_period:"overall"|"weekly";status:GoalStatus};
 type ExerciseResult={exercise_id:string;workout_sets:Array<{weight_kg:number|null;reps:number|null;duration_seconds:number|null;distance_km:number|null;completed:boolean}>};
 type WorkoutResult={completed_at:string};
-export type GoalSummary={id:string;label:string;goal_type:GoalType;target_value:number;unit:Goal["unit"];target_date:string|null;target_reps:number|null};
+export type GoalSummary={id:string;label:string;goal_type:GoalType;start_value:number;target_value:number;unit:Goal["unit"];target_date:string|null;target_reps:number|null};
 
 const goalTypes:Array<{id:GoalType;icon:string;label:string;copy:string}>=[
   {id:"body_composition",icon:"↘",label:"Body weight",copy:"Reach or change a bodyweight target."},
@@ -23,11 +23,11 @@ const goalTypes:Array<{id:GoalType;icon:string;label:string;copy:string}>=[
 
 const formatNumber=(value:number)=>Number(value.toFixed(1));
 const unitLabel=(goal:Goal)=>goal.unit==="sessions"?"sessions / week":goal.unit;
-const asSummary=(goal:Goal):GoalSummary=>({id:goal.id,label:goal.label,goal_type:goal.goal_type,target_value:Number(goal.target_value),unit:goal.unit,target_date:goal.target_date,target_reps:goal.target_reps});
+const asSummary=(goal:Goal):GoalSummary=>({id:goal.id,label:goal.label,goal_type:goal.goal_type,start_value:Number(goal.start_value),target_value:Number(goal.target_value),unit:goal.unit,target_date:goal.target_date,target_reps:goal.target_reps});
 
 export async function loadPrimaryGoal(userId:string):Promise<GoalSummary|null>{
-  const {data,error}=await supabase.from("goals").select("id,label,goal_type,target_value,unit,target_date,target_reps").eq("user_id",userId).eq("priority","primary").eq("status","active").maybeSingle();
-  if(error)throw error;return data?data as GoalSummary:null;
+  const {data,error}=await supabase.from("goals").select("id,label,goal_type,start_value,target_value,unit,target_date,target_reps").eq("user_id",userId).eq("priority","primary").eq("status","active").maybeSingle();
+  if(error)throw error;return data?{...data,start_value:Number(data.start_value),target_value:Number(data.target_value)} as GoalSummary:null;
 }
 
 export function GoalsArea({userId,current,onNotice,onSummary}:{userId:string;current:CheckIn;onNotice:(message:string)=>void;onSummary?:(goal:GoalSummary|null)=>void}){
