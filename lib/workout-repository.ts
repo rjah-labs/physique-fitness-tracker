@@ -8,9 +8,9 @@ export type TemplateExercise={exercise:Exercise;targetSets:number;targetReps:str
 export type WorkoutTemplate={id:string;name:string;notes:string;items:TemplateExercise[];createdAt:string;updatedAt:string};
 
 export const workoutRepository={
- async finish(userId:string,name:string,items:ActiveExercise[],startedAt:string){
+ async finish(userId:string,name:string,items:ActiveExercise[],startedAt:string,program?:{day:number;activatedAt:string}){
   const workoutId=crypto.randomUUID();
-  const {error:wErr}=await supabase.from("workouts").insert({id:workoutId,user_id:userId,name:name.trim()||"Workout",started_at:startedAt,completed_at:new Date().toISOString()});if(wErr)throw wErr;
+  const {error:wErr}=await supabase.from("workouts").insert({id:workoutId,user_id:userId,name:name.trim()||"Workout",started_at:startedAt,completed_at:new Date().toISOString(),program_day:program?.day||null,training_program_activated_at:program?.activatedAt||null});if(wErr)throw wErr;
   for(let i=0;i<items.length;i++){const item=items[i],exerciseId=crypto.randomUUID();
    const {error:eErr}=await supabase.from("workout_exercises").insert({id:exerciseId,user_id:userId,workout_id:workoutId,exercise_id:item.exercise.id,exercise_name:item.exercise.name,sort_order:i});if(eErr)throw eErr;
    const rows=item.sets.filter(s=>s.done).map((set,index)=>({user_id:userId,workout_id:workoutId,workout_exercise_id:exerciseId,set_number:index+1,weight_kg:set.weight,reps:set.reps,completed:true}));
