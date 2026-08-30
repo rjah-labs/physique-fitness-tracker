@@ -3,6 +3,7 @@ import {exerciseCatalog,type Exercise} from "./exercise-catalog";
 
 export type LoggedSet={weight:number;reps:number;done:boolean};
 export type ActiveExercise={exercise:Exercise;sets:LoggedSet[];previousSets?:Array<{weight:number;reps:number}>;targetSets?:number;targetReps?:string};
+export type ActiveWorkoutDraft={name:string;startedAt:string;updatedAt?:string;items:ActiveExercise[];programDay?:number;programActivatedAt?:string};
 export type WorkoutHistoryExercise={exerciseId:string;name:string;sets:Array<{setNumber:number;weight:number;reps:number;volume:number}>};
 export type WorkoutHistory={id:string;name:string;startedAt:string;completedAt:string;setCount:number;volume:number;exerciseNames:string[];exercises:WorkoutHistoryExercise[]};
 export type TemplateExercise={exercise:Exercise;targetSets:number;targetReps:string};
@@ -26,6 +27,9 @@ export function progressionSuggestion(item:ActiveExercise):ProgressionSuggestion
 }
 
 export const workoutRepository={
+ async loadDraft(userId:string):Promise<ActiveWorkoutDraft|null>{const {data,error}=await supabase.from("active_workout_drafts").select("session").eq("user_id",userId).maybeSingle();if(error)throw error;return data?.session as ActiveWorkoutDraft||null},
+ async saveDraft(userId:string,session:ActiveWorkoutDraft){const {error}=await supabase.from("active_workout_drafts").upsert({user_id:userId,session,updated_at:new Date().toISOString()},{onConflict:"user_id"});if(error)throw error},
+ async deleteDraft(userId:string){const {error}=await supabase.from("active_workout_drafts").delete().eq("user_id",userId);if(error)throw error},
  async finish(userId:string,name:string,items:ActiveExercise[],startedAt:string,program?:{day:number;activatedAt:string}){
   const workoutId=crypto.randomUUID();
   const {error:wErr}=await supabase.from("workouts").insert({id:workoutId,user_id:userId,name:name.trim()||"Workout",started_at:startedAt,completed_at:new Date().toISOString(),program_day:program?.day||null,training_program_activated_at:program?.activatedAt||null});if(wErr)throw wErr;
