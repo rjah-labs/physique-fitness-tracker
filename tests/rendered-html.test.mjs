@@ -23,14 +23,14 @@ test("server-renders the Physique application shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
-test("ships the v0.13a cloud workout autosave without starter remnants", async () => {
+test("ships the v0.13b workout rest timer without starter remnants", async () => {
   const [page, workouts, repository, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/workouts.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/workout-repository.ts", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /V0\.13A/);
+  assert.match(page, /V0\.13B/);
   assert.match(workouts, /ProgressionGuide/);
   assert.match(workouts, /Use \{guide\.suggestedWeight\} kg/);
   assert.match(workouts, /ExerciseProgress/);
@@ -41,6 +41,9 @@ test("ships the v0.13a cloud workout autosave without starter remnants", async (
   assert.match(repository, /active_workout_drafts/);
   assert.match(repository, /saveDraft/);
   assert.match(workouts, /Autosaved securely/);
+  assert.match(workouts, /RestTimer/);
+  assert.match(workouts, /REST COMPLETE/);
+  assert.match(workouts, /visibilitychange/);
   assert.match(repository, /suggested increase is optional/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
