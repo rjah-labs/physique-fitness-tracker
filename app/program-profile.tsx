@@ -5,22 +5,23 @@ import { supabase } from "../lib/supabase";
 import { ProgramGenerator } from "./program-generator";
 
 type Profile={experience_level:"beginner"|"intermediate"|"advanced";training_days:number;session_minutes:number;training_style:"balanced"|"strength"|"hypertrophy"|"mixed";equipment:string[];priority_muscles:string[];preferred_exercises:string[];excluded_exercises:string[];current_routine:string|null;limitations:string|null;limitations_reviewed:boolean};
+type BriefGoal={label:string;goal_type:"body_composition"|"body_measurement"|"strength"|"performance"|"consistency";priority:"primary"|"secondary";target_value:number;unit:string;target_date:string|null};
 const empty:Profile={experience_level:"beginner",training_days:3,session_minutes:60,training_style:"balanced",equipment:[],priority_muscles:[],preferred_exercises:[],excluded_exercises:[],current_routine:null,limitations:null,limitations_reviewed:false};
 const equipment=["Commercial gym","Barbell & rack","Dumbbells","Cables","Machines","Bands","Bodyweight","Cardio equipment"];
 const muscles=["Chest","Back","Shoulders","Arms","Glutes","Quads","Hamstrings","Calves","Core"];
 const split=(value:string)=>value.split(",").map(item=>item.trim()).filter(Boolean);
 
-export function ProgramProfileCard({userId,hasPrimaryGoal,hasWorkoutHistory,onNotice}:{userId:string;hasPrimaryGoal:boolean;hasWorkoutHistory:boolean;onNotice:(message:string)=>void}){
+export function ProgramProfileCard({userId,goals,hasWorkoutHistory,onNotice}:{userId:string;goals:BriefGoal[];hasWorkoutHistory:boolean;onNotice:(message:string)=>void}){
   const [profile,setProfile]=useState<Profile|null>(null);const [draft,setDraft]=useState<Profile>(empty);const [open,setOpen]=useState(false);const [busy,setBusy]=useState(false);const [loading,setLoading]=useState(true);
   async function load(){setLoading(true);const {data,error}=await supabase.from("program_profiles").select("experience_level,training_days,session_minutes,training_style,equipment,priority_muscles,preferred_exercises,excluded_exercises,current_routine,limitations,limitations_reviewed").eq("user_id",userId).maybeSingle();setLoading(false);if(error){onNotice(error.message);return}setProfile(data as Profile|null)}
   useEffect(()=>{load()},[userId]);
   const required=useMemo(()=>[
-    {label:"Primary goal selected",done:hasPrimaryGoal},
+    {label:"Primary goal selected",done:goals.some(goal=>goal.priority==="primary")},
     {label:"Training schedule set",done:Boolean(profile?.training_days&&profile?.session_minutes)},
     {label:"Available equipment chosen",done:Boolean(profile?.equipment.length)},
     {label:"Exercise preferences reviewed",done:Boolean(profile)},
     {label:"Limitations reviewed",done:Boolean(profile?.limitations_reviewed)},
-  ],[profile,hasPrimaryGoal]);
+  ],[profile,goals]);
   const ready=required.every(item=>item.done);const complete=required.filter(item=>item.done).length;
   function start(){setDraft(profile?{...profile,equipment:[...profile.equipment],priority_muscles:[...profile.priority_muscles],preferred_exercises:[...profile.preferred_exercises],excluded_exercises:[...profile.excluded_exercises]}:{...empty,equipment:[],priority_muscles:[],preferred_exercises:[],excluded_exercises:[]});setOpen(true)}
   function toggle(field:"equipment"|"priority_muscles",value:string){setDraft(current=>({...current,[field]:current[field].includes(value)?current[field].filter(item=>item!==value):[...current[field],value]}))}
@@ -39,6 +40,14 @@ export function ProgramProfileCard({userId,hasPrimaryGoal,hasWorkoutHistory,onNo
       <label className="review-check"><input type="checkbox" checked={draft.limitations_reviewed} onChange={e=>setDraft({...draft,limitations_reviewed:e.target.checked})}/><span>I have reviewed this section, including if I have no limitations.</span></label>
       <div className="goal-boundary"><strong>Training context only</strong><p>Physique uses this information to avoid unsuitable choices. It does not diagnose injuries or prescribe rehabilitation. Seek qualified advice for pain or injury.</p></div><button className="primary" disabled={busy}>{busy?"Saving…":"Save program profile"}</button>
     </form></div>}
+    {profile&&<ProgramBrief profile={profile} goals={goals} hasWorkoutHistory={hasWorkoutHistory} ready={ready}/>}
     <ProgramGenerator userId={userId} profile={profile} ready={ready} onNotice={onNotice}/>
   </>;
+}
+
+function ProgramBrief({profile,goals,hasWorkoutHistory,ready}:{profile:Profile;goals:BriefGoal[];hasWorkoutHistory:boolean;ready:boolean}){
+  const primary=goals.find(goal=>goal.priority==="primary");
+  const pathway=primary?.goal_type==="strength"?"Strength progression":primary?.goal_type==="performance"?"Performance development":primary?.goal_type==="consistency"?"Training consistency":primary?.goal_type==="body_measurement"?"Body-measurement change":primary?.goal_type==="body_composition"?"Bodyweight change":"Goal not selected";
+  const target=primary?`${primary.label} · ${primary.target_value} ${primary.unit}${primary.target_date?` by ${new Date(`${primary.target_date}T12:00:00`).toLocaleDateString("en-AU",{day:"numeric",month:"short",year:"numeric"})}`:""}`:"Add a primary goal to complete this brief";
+  return <section className={`program-brief ${ready?"ready":""}`}><header><div><p className="eyebrow">COACHING BRIEF · V0.14A</p><h2>{ready?"Your inputs are structured.":"Your future plan needs context."}</h2></div><span>{ready?"✓":"○"}</span></header><div className="brief-pathway"><small>PRIMARY PATHWAY</small><strong>{pathway}</strong><p>{target}</p></div><div className="brief-grid"><span><small>Training level</small><b>{profile.experience_level}</b></span><span><small>Weekly schedule</small><b>{profile.training_days} × {profile.session_minutes} min</b></span><span><small>Training bias</small><b>{profile.training_style}</b></span><span><small>Evidence</small><b>{hasWorkoutHistory?"Workout history available":"No workout history yet"}</b></span></div><details><summary>What a future AI planner may use</summary><p>Active goals, this training profile, available equipment, exercise preferences, approved limitations and relevant workout history.</p><p>It will not receive progress photos, account credentials or unrelated personal data as program-planning inputs.</p></details><div className="brief-boundary"><span>◎</span><p><strong>Preparation only—AI remains off.</strong> A future AI draft will still require your review and explicit activation. It will provide general training guidance, not diagnosis, rehabilitation or guaranteed results.</p></div></section>
 }
