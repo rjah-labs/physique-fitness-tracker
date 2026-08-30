@@ -23,17 +23,21 @@ test("server-renders the Physique application shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
-test("ships the v0.12b progression feature without starter remnants", async () => {
+test("ships the v0.12c workout review features without starter remnants", async () => {
   const [page, workouts, repository, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/workouts.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/workout-repository.ts", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /V0\.12B/);
+  assert.match(page, /V0\.12C/);
   assert.match(workouts, /ProgressionGuide/);
   assert.match(workouts, /Use \{guide\.suggestedWeight\} kg/);
+  assert.match(workouts, /ExerciseProgress/);
+  assert.match(workouts, /Completed sessions/);
+  assert.match(workouts, /Estimated strength/);
   assert.match(repository, /progressionSuggestion/);
+  assert.match(repository, /workout_sets\(set_number,weight_kg,reps,completed\)/);
   assert.match(repository, /suggested increase is optional/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
