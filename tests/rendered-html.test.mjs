@@ -23,7 +23,7 @@ test("server-renders the Physique application shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
-test("ships the v0.14a coaching brief without starter remnants", async () => {
+test("ships the v0.14a.1 optional onboarding without starter remnants", async () => {
   const [page, workouts, repository, generator, profile, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/workouts.tsx", import.meta.url), "utf8"),
@@ -32,7 +32,11 @@ test("ships the v0.14a coaching brief without starter remnants", async () => {
     readFile(new URL("../app/program-profile.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /V0\.14A/);
+  assert.match(page, /V0\.14A\.1/);
+  assert.match(page, /Measurements, weight and progress photos are optional/);
+  assert.match(page, /Start training/);
+  assert.match(page, /No baseline required/);
+  assert.doesNotMatch(page, /checkIns\.length===0\?<Onboarding/);
   assert.match(workouts, /ProgressionGuide/);
   assert.match(workouts, /Use \{guide\.suggestedWeight\} kg/);
   assert.match(workouts, /ExerciseProgress/);
