@@ -3,7 +3,8 @@ import {exerciseCatalog,type Exercise} from "./exercise-catalog";
 
 export type LoggedSet={weight:number;reps:number;done:boolean};
 export type ActiveExercise={exercise:Exercise;sets:LoggedSet[];previousSets?:Array<{weight:number;reps:number}>;targetSets?:number;targetReps?:string};
-export type WorkoutHistory={id:string;name:string;startedAt:string;completedAt:string;setCount:number;volume:number;exerciseNames:string[]};
+export type WorkoutHistoryExercise={exerciseId:string;name:string;sets:Array<{setNumber:number;weight:number;reps:number;volume:number}>};
+export type WorkoutHistory={id:string;name:string;startedAt:string;completedAt:string;setCount:number;volume:number;exerciseNames:string[];exercises:WorkoutHistoryExercise[]};
 export type TemplateExercise={exercise:Exercise;targetSets:number;targetReps:string};
 export type WorkoutTemplate={id:string;name:string;notes:string;items:TemplateExercise[];createdAt:string;updatedAt:string};
 
@@ -35,8 +36,8 @@ export const workoutRepository={
   }
  },
  async history():Promise<WorkoutHistory[]>{
-  const {data,error}=await supabase.from("workouts").select("id,name,started_at,completed_at,workout_exercises(exercise_name,workout_sets(weight_kg,reps,completed))").not("completed_at","is",null).order("started_at",{ascending:false}).limit(30);if(error)throw error;
-  return (data||[]).map((w:any)=>{const sets=w.workout_exercises.flatMap((e:any)=>e.workout_sets||[]).filter((s:any)=>s.completed);return{id:w.id,name:w.name,startedAt:w.started_at,completedAt:w.completed_at,setCount:sets.length,volume:sets.reduce((n:number,s:any)=>n+Number(s.weight_kg||0)*Number(s.reps||0),0),exerciseNames:w.workout_exercises.map((e:any)=>e.exercise_name)}})
+  const {data,error}=await supabase.from("workouts").select("id,name,started_at,completed_at,workout_exercises(exercise_id,exercise_name,sort_order,workout_sets(set_number,weight_kg,reps,completed))").not("completed_at","is",null).order("started_at",{ascending:false}).limit(30);if(error)throw error;
+  return (data||[]).map((w:any)=>{const exercises=(w.workout_exercises||[]).sort((a:any,b:any)=>a.sort_order-b.sort_order).map((exercise:any)=>({exerciseId:exercise.exercise_id,name:exercise.exercise_name,sets:(exercise.workout_sets||[]).filter((set:any)=>set.completed).sort((a:any,b:any)=>a.set_number-b.set_number).map((set:any)=>{const weight=Number(set.weight_kg||0),reps=Number(set.reps||0);return{setNumber:Number(set.set_number),weight,reps,volume:weight*reps}})}));const sets=exercises.flatMap((exercise:WorkoutHistoryExercise)=>exercise.sets);return{id:w.id,name:w.name,startedAt:w.started_at,completedAt:w.completed_at,setCount:sets.length,volume:sets.reduce((n:number,set:{volume:number})=>n+set.volume,0),exerciseNames:exercises.map((exercise:WorkoutHistoryExercise)=>exercise.name),exercises}})
  },
  async templates():Promise<WorkoutTemplate[]>{
   const {data,error}=await supabase.from("workout_templates").select("id,name,notes,created_at,updated_at,workout_template_exercises(exercise_id,sort_order,target_sets,target_reps)").order("updated_at",{ascending:false});if(error)throw error;
