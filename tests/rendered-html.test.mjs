@@ -23,14 +23,15 @@ test("server-renders the Physique application shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
-test("ships the v0.13b workout rest timer without starter remnants", async () => {
-  const [page, workouts, repository, packageJson] = await Promise.all([
+test("ships the v0.13c program review without starter remnants", async () => {
+  const [page, workouts, repository, generator, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/workouts.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/workout-repository.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/program-generator.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /V0\.13B/);
+  assert.match(page, /V0\.13C/);
   assert.match(workouts, /ProgressionGuide/);
   assert.match(workouts, /Use \{guide\.suggestedWeight\} kg/);
   assert.match(workouts, /ExerciseProgress/);
@@ -44,6 +45,9 @@ test("ships the v0.13b workout rest timer without starter remnants", async () =>
   assert.match(workouts, /RestTimer/);
   assert.match(workouts, /REST COMPLETE/);
   assert.match(workouts, /visibilitychange/);
+  assert.match(generator, /ProgramReview/);
+  assert.match(generator, /PROGRAM REVIEW · V0\.13C/);
+  assert.match(generator, /Your active program remains unchanged until you explicitly activate the revision/);
   assert.match(repository, /suggested increase is optional/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
