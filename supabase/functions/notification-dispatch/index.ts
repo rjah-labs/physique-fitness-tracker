@@ -39,12 +39,12 @@ Deno.serve(async(req)=>{
     if(!devices?.length)continue;
     const messages:Array<{category:string;reference:string;scheduled:string;title:string;body:string;url:string}>=[];
     if(pref.supplement_notifications){
-      const {data:supps}=await admin.from("supplements").select("id,name,dose_value,dose_unit,scheduled_time,reminder_enabled,follow_up_minutes").eq("user_id",pref.user_id).eq("active",true);
+      const {data:supps}=await admin.from("supplements").select("id,name,dose_value,dose_unit,scheduled_time,scheduled_weekdays,reminder_enabled,follow_up_minutes").eq("user_id",pref.user_id).eq("active",true);
       const {data:suppLogs}=await admin.from("supplement_logs").select("supplement_id").eq("user_id",pref.user_id).eq("scheduled_on",local.date);
       const recorded=new Set((suppLogs||[]).map(log=>log.supplement_id));
-      const [lh,lm]=local.time.split(":").map(Number),nowMinutes=lh*60+lm;
+      const [lh,lm]=local.time.split(":").map(Number),nowMinutes=lh*60+lm,localWeekday=new Date(`${local.date}T12:00:00Z`).getUTCDay();
       for(const item of supps||[]){
-        if(!item.reminder_enabled||recorded.has(item.id))continue;
+        if(!item.reminder_enabled||recorded.has(item.id)||!item.scheduled_weekdays.includes(localWeekday))continue;
         const [sh,sm]=String(item.scheduled_time).slice(0,5).split(":").map(Number),scheduledMinutes=sh*60+sm;
         const primary=nowMinutes===scheduledMinutes;
         const follow=Boolean(item.follow_up_minutes)&&nowMinutes===(scheduledMinutes+Number(item.follow_up_minutes))%1440;
