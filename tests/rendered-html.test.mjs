@@ -23,8 +23,8 @@ test("server-renders the Physique application shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
-test("ships v0.14b supplement reminders with opt-in notifications", async () => {
-  const [page, workouts, repository, generator, profile, ownerAnalytics, migration, supplementMigration, supplements, packageJson] = await Promise.all([
+test("ships v0.14b.1 weekday-aware supplement reminders", async () => {
+  const [page, workouts, repository, generator, profile, ownerAnalytics, migration, supplementMigration, weekdayMigration, supplements, dispatch, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/workouts.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/workout-repository.ts", import.meta.url), "utf8"),
@@ -33,10 +33,12 @@ test("ships v0.14b supplement reminders with opt-in notifications", async () => 
     readFile(new URL("../app/owner-analytics.tsx", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260901090000_add_owner_analytics.sql", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260907100000_improve_supplement_reminders.sql", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260907120000_add_supplement_weekdays.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/supplements.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/functions/notification-dispatch/index.ts", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /V0\.14B/);
+  assert.match(page, /V0\.14B\.1/);
   assert.match(page, /Measurements, weight and progress photos are optional/);
   assert.match(page, /Start training/);
   assert.match(page, /No baseline required/);
@@ -74,6 +76,10 @@ test("ships v0.14b supplement reminders with opt-in notifications", async () => 
   assert.match(supplements, /taken as scheduled/);
   assert.match(supplements, /reminder_enabled/);
   assert.match(supplementMigration, /follow_up_minutes/);
+  assert.match(supplements, /Days taken/);
+  assert.match(supplements, /scheduled_weekdays/);
+  assert.match(weekdayMigration, /Sunday=0 through Saturday=6/);
+  assert.match(dispatch, /scheduled_weekdays\.includes\(localWeekday\)/);
   assert.match(repository, /suggested increase is optional/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
