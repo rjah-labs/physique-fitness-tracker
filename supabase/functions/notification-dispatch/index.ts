@@ -39,7 +39,7 @@ Deno.serve(async(req)=>{
     if(!devices?.length)continue;
     const messages:Array<{category:string;reference:string;scheduled:string;title:string;body:string;url:string}>=[];
     if(pref.supplement_notifications){
-      const {data:supps}=await admin.from("supplements").select("id,name,dose_value,dose_unit,scheduled_time,scheduled_weekdays,reminder_enabled,follow_up_minutes").eq("user_id",pref.user_id).eq("active",true);
+      const {data:supps}=await admin.from("supplements").select("id,name,dose_value,dose_unit,concentration_mg_per_ml,scheduled_time,scheduled_weekdays,reminder_enabled,follow_up_minutes").eq("user_id",pref.user_id).eq("active",true);
       const {data:suppLogs}=await admin.from("supplement_logs").select("supplement_id").eq("user_id",pref.user_id).eq("scheduled_on",local.date);
       const recorded=new Set((suppLogs||[]).map(log=>log.supplement_id));
       const [lh,lm]=local.time.split(":").map(Number),nowMinutes=lh*60+lm,localWeekday=new Date(`${local.date}T12:00:00Z`).getUTCDay();
@@ -48,7 +48,8 @@ Deno.serve(async(req)=>{
         const [sh,sm]=String(item.scheduled_time).slice(0,5).split(":").map(Number),scheduledMinutes=sh*60+sm;
         const primary=nowMinutes===scheduledMinutes;
         const follow=Boolean(item.follow_up_minutes)&&nowMinutes===(scheduledMinutes+Number(item.follow_up_minutes))%1440;
-        if(primary||follow)messages.push({category:"supplement",reference:`${item.id}:${local.date}:${follow?"follow":"due"}`,scheduled:`${local.date}T${local.time}:00Z`,title:follow?"Supplement follow-up":"Supplement reminder",body:follow?`${item.name} is still unrecorded. Taken or skipped?`:`${item.name} · ${item.dose_value} ${item.dose_unit}`,url:"./?tab=Supps"});
+        const concentration=item.dose_unit==="ml"&&item.concentration_mg_per_ml?` · ${item.concentration_mg_per_ml} mg/ml`:"";
+        if(primary||follow)messages.push({category:"supplement",reference:`${item.id}:${local.date}:${follow?"follow":"due"}`,scheduled:`${local.date}T${local.time}:00Z`,title:follow?"Supplement follow-up":"Supplement reminder",body:follow?`${item.name} is still unrecorded. Preset ${item.dose_value} ${item.dose_unit}.`:`${item.name} · preset ${item.dose_value} ${item.dose_unit}${concentration}`,url:"./?tab=Supps"});
       }
     }
     if(pref.goal_notifications&&local.time==="09:00"){
