@@ -23,7 +23,7 @@ test("server-renders the Physique application shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
-test("ships v0.14b.2 advanced immutable daily supplement doses", async () => {
+test("ships v0.14b.3 advanced immutable supplement doses with units", async () => {
   const [page, workouts, repository, generator, profile, ownerAnalytics, migration, supplementMigration, weekdayMigration, advancedMigration, supplements, dispatch, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/workouts.tsx", import.meta.url), "utf8"),
@@ -39,7 +39,7 @@ test("ships v0.14b.2 advanced immutable daily supplement doses", async () => {
     readFile(new URL("../supabase/functions/notification-dispatch/index.ts", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /V0\.14B\.2/);
+  assert.match(page, /V0\.14B\.3/);
   assert.match(page, /Measurements, weight and progress photos are optional/);
   assert.match(page, /Start training/);
   assert.match(page, /No baseline required/);
@@ -85,6 +85,7 @@ test("ships v0.14b.2 advanced immutable daily supplement doses", async () => {
   assert.match(page, /advanced_supplement_tracking: false/);
   assert.match(supplements, /Concentration/);
   assert.match(supplements, /Record actual dose/);
+  assert.match(supplements, /"ml","units","capsule"/);
   assert.match(supplements, /preset_dose_value/);
   assert.match(advancedMigration, /Immutable snapshot/);
   assert.match(dispatch, /preset \$\{item\.dose_value\}/);
