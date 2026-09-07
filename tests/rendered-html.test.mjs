@@ -23,8 +23,8 @@ test("server-renders the Physique application shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
-test("ships the v0.14a.2 optional onboarding and private owner analytics", async () => {
-  const [page, workouts, repository, generator, profile, ownerAnalytics, migration, packageJson] = await Promise.all([
+test("ships v0.14b supplement reminders with opt-in notifications", async () => {
+  const [page, workouts, repository, generator, profile, ownerAnalytics, migration, supplementMigration, supplements, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/workouts.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/workout-repository.ts", import.meta.url), "utf8"),
@@ -32,9 +32,11 @@ test("ships the v0.14a.2 optional onboarding and private owner analytics", async
     readFile(new URL("../app/program-profile.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/owner-analytics.tsx", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260901090000_add_owner_analytics.sql", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260907100000_improve_supplement_reminders.sql", import.meta.url), "utf8"),
+    readFile(new URL("../app/supplements.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /V0\.14A\.2/);
+  assert.match(page, /V0\.14B/);
   assert.match(page, /Measurements, weight and progress photos are optional/);
   assert.match(page, /Start training/);
   assert.match(page, /No baseline required/);
@@ -66,6 +68,12 @@ test("ships the v0.14a.2 optional onboarding and private owner analytics", async
   assert.match(migration, /alter table public\.app_user_activity enable row level security/i);
   assert.match(migration, /security definer/i);
   assert.match(migration, /revoke execute on function public\.get_owner_analytics\(\) from public, anon/i);
+  assert.match(page, /NOTIFICATIONS · OPT IN/);
+  assert.match(page, /notifications_enabled:false/);
+  assert.match(supplements, /Follow-up if still unrecorded/);
+  assert.match(supplements, /taken as scheduled/);
+  assert.match(supplements, /reminder_enabled/);
+  assert.match(supplementMigration, /follow_up_minutes/);
   assert.match(repository, /suggested increase is optional/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
