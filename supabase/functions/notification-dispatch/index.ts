@@ -39,8 +39,10 @@ Deno.serve(async(req)=>{
     if(!devices?.length)continue;
     const messages:Array<{category:string;reference:string;scheduled:string;title:string;body:string;url:string}>=[];
     if(pref.supplement_notifications){
-      const {data:supps}=await admin.from("supplements").select("id,name,dose_value,dose_unit,concentration_mg_per_ml,scheduled_time,scheduled_weekdays,reminder_enabled,follow_up_minutes").eq("user_id",pref.user_id).eq("active",true);
-      const {data:suppLogs}=await admin.from("supplement_logs").select("supplement_id").eq("user_id",pref.user_id).eq("scheduled_on",local.date);
+      const {data:supps,error:suppsError}=await admin.from("supplements").select("id,name,dose_value,dose_unit,concentration_mg_per_ml,scheduled_time,scheduled_weekdays,reminder_enabled,follow_up_minutes").eq("user_id",pref.user_id).eq("active",true);
+      if(suppsError)throw suppsError;
+      const {data:suppLogs,error:suppLogsError}=await admin.from("supplement_logs").select("supplement_id").eq("user_id",pref.user_id).eq("scheduled_on",local.date);
+      if(suppLogsError)throw suppLogsError;
       const recorded=new Set((suppLogs||[]).map(log=>log.supplement_id));
       const [lh,lm]=local.time.split(":").map(Number),nowMinutes=lh*60+lm,localWeekday=new Date(`${local.date}T12:00:00Z`).getUTCDay();
       for(const item of supps||[]){
