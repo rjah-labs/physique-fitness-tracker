@@ -96,6 +96,8 @@ test("ships v0.14c recurring supplement schedules and history calendar", async (
   assert.match(supplements, /HISTORY CALENDAR/);
   assert.match(supplements, /No supplement records saved for this day/);
   assert.match(recurrenceMigration, /schedule_frequency in \('weekly', 'fortnightly', 'monthly'\)/);
+  assert.match(supplements, /Custom number of days/);
+  assert.match(supplements, /Previous records stay unchanged/);
   assert.match(schedule, /%14===0/);
   assert.match(repository, /suggested increase is optional/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
