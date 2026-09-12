@@ -1,8 +1,9 @@
-export type SupplementFrequency="weekly"|"fortnightly"|"monthly";
+export type SupplementFrequency="weekly"|"fortnightly"|"monthly"|"custom";
 
 export type SupplementSchedule={
   schedule_frequency:SupplementFrequency;
   schedule_anchor_date:string|null;
+  schedule_interval_days:number|null;
   scheduled_weekdays:number[];
 };
 
@@ -15,6 +16,10 @@ export function isSupplementDue(item:SupplementSchedule,date:Date){
   const anchor=parseDate(item.schedule_anchor_date),candidate=parseDate(dateOnly(date));
   if(candidate<anchor)return false;
   if(item.schedule_frequency==="fortnightly")return Math.round((candidate.getTime()-anchor.getTime())/86400000)%14===0;
+  if(item.schedule_frequency==="custom"){
+    const elapsed=Math.round((candidate.getTime()-anchor.getTime())/86400000),interval=Number(item.schedule_interval_days);
+    return interval>0&&elapsed>0&&elapsed%interval===0;
+  }
   const lastDay=new Date(date.getFullYear(),date.getMonth()+1,0).getDate();
   return date.getDate()===Math.min(anchor.getDate(),lastDay);
 }
@@ -22,6 +27,7 @@ export function isSupplementDue(item:SupplementSchedule,date:Date){
 export function supplementScheduleSummary(item:SupplementSchedule){
   if(item.schedule_frequency==="fortnightly")return item.schedule_anchor_date?`Every 2 weeks from ${formatScheduleDate(item.schedule_anchor_date)}`:"Every 2 weeks";
   if(item.schedule_frequency==="monthly")return item.schedule_anchor_date?`Monthly on day ${parseDate(item.schedule_anchor_date).getDate()}`:"Every month";
+  if(item.schedule_frequency==="custom")return item.schedule_anchor_date&&item.schedule_interval_days?`Every ${item.schedule_interval_days} days from ${formatScheduleDate(item.schedule_anchor_date)}`:"Custom interval";
   const labels=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   return item.scheduled_weekdays.length===7?"Every day":item.scheduled_weekdays.length===5&&[1,2,3,4,5].every(day=>item.scheduled_weekdays.includes(day))?"Weekdays":item.scheduled_weekdays.map(day=>labels[day]).join(", ");
 }
