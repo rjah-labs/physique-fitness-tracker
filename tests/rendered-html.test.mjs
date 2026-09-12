@@ -23,8 +23,8 @@ test("server-renders the Physique application shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
-test("ships v0.14b.3 advanced immutable supplement doses with units", async () => {
-  const [page, workouts, repository, generator, profile, ownerAnalytics, migration, supplementMigration, weekdayMigration, advancedMigration, supplements, dispatch, packageJson] = await Promise.all([
+test("ships v0.14c recurring supplement schedules and history calendar", async () => {
+  const [page, workouts, repository, generator, profile, ownerAnalytics, migration, supplementMigration, weekdayMigration, advancedMigration, recurrenceMigration, schedule, supplements, dispatch, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/workouts.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/workout-repository.ts", import.meta.url), "utf8"),
@@ -35,11 +35,13 @@ test("ships v0.14b.3 advanced immutable supplement doses with units", async () =
     readFile(new URL("../supabase/migrations/20260907100000_improve_supplement_reminders.sql", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260907120000_add_supplement_weekdays.sql", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260907143000_add_advanced_supplement_doses.sql", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260912100000_add_extended_supplement_schedules.sql", import.meta.url), "utf8"),
+    readFile(new URL("../lib/supplement-schedule.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/supplements.tsx", import.meta.url), "utf8"),
     readFile(new URL("../supabase/functions/notification-dispatch/index.ts", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /V0\.14B\.3/);
+  assert.match(page, /V0\.14C/);
   assert.match(page, /Measurements, weight and progress photos are optional/);
   assert.match(page, /Start training/);
   assert.match(page, /No baseline required/);
@@ -80,7 +82,7 @@ test("ships v0.14b.3 advanced immutable supplement doses with units", async () =
   assert.match(supplements, /Days taken/);
   assert.match(supplements, /scheduled_weekdays/);
   assert.match(weekdayMigration, /Sunday=0 through Saturday=6/);
-  assert.match(dispatch, /scheduled_weekdays\.includes\(localWeekday\)/);
+  assert.match(dispatch, /supplementDue\(item,local\.date,localWeekday\)/);
   assert.match(page, /Advanced supplement tracking/);
   assert.match(page, /advanced_supplement_tracking: false/);
   assert.match(supplements, /Concentration/);
@@ -89,6 +91,12 @@ test("ships v0.14b.3 advanced immutable supplement doses with units", async () =
   assert.match(supplements, /preset_dose_value/);
   assert.match(advancedMigration, /Immutable snapshot/);
   assert.match(dispatch, /preset \$\{item\.dose_value\}/);
+  assert.match(supplements, /Every 2 weeks/);
+  assert.match(supplements, /Every month/);
+  assert.match(supplements, /HISTORY CALENDAR/);
+  assert.match(supplements, /No supplement records saved for this day/);
+  assert.match(recurrenceMigration, /schedule_frequency in \('weekly', 'fortnightly', 'monthly'\)/);
+  assert.match(schedule, /%14===0/);
   assert.match(repository, /suggested increase is optional/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
