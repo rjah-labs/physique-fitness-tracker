@@ -22,6 +22,14 @@ function localNow(timezone:string){
 function quiet(time:string,start:string,end:string){const s=start.slice(0,5),e=end.slice(0,5);return s<e?time>=s&&time<e:time>=s||time<e}
 function addDays(date:string,days:number,weekday:number){const d=new Date(`${date}T12:00:00Z`);d.setUTCDate(d.getUTCDate()+days);d.setUTCDate(d.getUTCDate()+((weekday-d.getUTCDay()+7)%7));return d.toISOString().slice(0,10)}
 function minuteMatch(actual:string,scheduled:string){const [ah,am]=actual.split(":").map(Number),[sh,sm]=scheduled.slice(0,5).split(":").map(Number);return ah*60+am===sh*60+sm}
+function supplementDue(item:any,date:string,weekday:number){
+  if((item.schedule_frequency||"weekly")==="weekly")return item.scheduled_weekdays.includes(weekday);
+  if(!item.schedule_anchor_date||date<item.schedule_anchor_date)return false;
+  const candidate=new Date(`${date}T12:00:00Z`),anchor=new Date(`${item.schedule_anchor_date}T12:00:00Z`);
+  if(item.schedule_frequency==="fortnightly")return Math.round((candidate.getTime()-anchor.getTime())/86400000)%14===0;
+  const lastDay=new Date(Date.UTC(candidate.getUTCFullYear(),candidate.getUTCMonth()+1,0)).getUTCDate();
+  return candidate.getUTCDate()===Math.min(anchor.getUTCDate(),lastDay);
+}
 
 Deno.serve(async(req)=>{
   try {
@@ -39,14 +47,14 @@ Deno.serve(async(req)=>{
     if(!devices?.length)continue;
     const messages:Array<{category:string;reference:string;scheduled:string;title:string;body:string;url:string}>=[];
     if(pref.supplement_notifications){
-      const {data:supps,error:suppsError}=await admin.from("supplements").select("id,name,dose_value,dose_unit,concentration_mg_per_ml,scheduled_time,scheduled_weekdays,reminder_enabled,follow_up_minutes").eq("user_id",pref.user_id).eq("active",true);
+      const {data:supps,error:suppsError}=await admin.from("supplements").select("id,name,dose_value,dose_unit,concentration_mg_per_ml,scheduled_time,scheduled_weekdays,schedule_frequency,schedule_anchor_date,reminder_enabled,follow_up_minutes").eq("user_id",pref.user_id).eq("active",true);
       if(suppsError)throw suppsError;
       const {data:suppLogs,error:suppLogsError}=await admin.from("supplement_logs").select("supplement_id").eq("user_id",pref.user_id).eq("scheduled_on",local.date);
       if(suppLogsError)throw suppLogsError;
       const recorded=new Set((suppLogs||[]).map(log=>log.supplement_id));
       const [lh,lm]=local.time.split(":").map(Number),nowMinutes=lh*60+lm,localWeekday=new Date(`${local.date}T12:00:00Z`).getUTCDay();
       for(const item of supps||[]){
-        if(!item.reminder_enabled||recorded.has(item.id)||!item.scheduled_weekdays.includes(localWeekday))continue;
+        if(!item.reminder_enabled||recorded.has(item.id)||!supplementDue(item,local.date,localWeekday))continue;
         const [sh,sm]=String(item.scheduled_time).slice(0,5).split(":").map(Number),scheduledMinutes=sh*60+sm;
         const primary=nowMinutes===scheduledMinutes;
         const follow=Boolean(item.follow_up_minutes)&&nowMinutes===(scheduledMinutes+Number(item.follow_up_minutes))%1440;
