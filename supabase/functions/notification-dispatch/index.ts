@@ -27,6 +27,10 @@ function supplementDue(item:any,date:string,weekday:number){
   if(!item.schedule_anchor_date||date<item.schedule_anchor_date)return false;
   const candidate=new Date(`${date}T12:00:00Z`),anchor=new Date(`${item.schedule_anchor_date}T12:00:00Z`);
   if(item.schedule_frequency==="fortnightly")return Math.round((candidate.getTime()-anchor.getTime())/86400000)%14===0;
+  if(item.schedule_frequency==="custom"){
+    const elapsed=Math.round((candidate.getTime()-anchor.getTime())/86400000),interval=Number(item.schedule_interval_days);
+    return interval>0&&elapsed>0&&elapsed%interval===0;
+  }
   const lastDay=new Date(Date.UTC(candidate.getUTCFullYear(),candidate.getUTCMonth()+1,0)).getUTCDate();
   return candidate.getUTCDate()===Math.min(anchor.getUTCDate(),lastDay);
 }
@@ -47,7 +51,7 @@ Deno.serve(async(req)=>{
     if(!devices?.length)continue;
     const messages:Array<{category:string;reference:string;scheduled:string;title:string;body:string;url:string}>=[];
     if(pref.supplement_notifications){
-      const {data:supps,error:suppsError}=await admin.from("supplements").select("id,name,dose_value,dose_unit,concentration_mg_per_ml,scheduled_time,scheduled_weekdays,schedule_frequency,schedule_anchor_date,reminder_enabled,follow_up_minutes").eq("user_id",pref.user_id).eq("active",true);
+      const {data:supps,error:suppsError}=await admin.from("supplements").select("id,name,dose_value,dose_unit,concentration_mg_per_ml,scheduled_time,scheduled_weekdays,schedule_frequency,schedule_anchor_date,schedule_interval_days,reminder_enabled,follow_up_minutes").eq("user_id",pref.user_id).eq("active",true);
       if(suppsError)throw suppsError;
       const {data:suppLogs,error:suppLogsError}=await admin.from("supplement_logs").select("supplement_id").eq("user_id",pref.user_id).eq("scheduled_on",local.date);
       if(suppLogsError)throw suppLogsError;
