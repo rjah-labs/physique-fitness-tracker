@@ -12,6 +12,7 @@ export type WorkoutTemplate={id:string;name:string;notes:string;items:TemplateEx
 export type ProgressionSuggestion={kind:"baseline"|"build-reps"|"add-load"|"recover";title:string;detail:string;suggestedWeight?:number};
 
 export function progressionSuggestion(item:ActiveExercise):ProgressionSuggestion{
+ if(item.exercise.intent==="power")return{kind:"baseline",title:"Quality and speed first",detail:"Keep the prescribed low reps. Reset each rep and stop when jump height, speed or landing control declines. Never progress by adding fatigue, slow reps or training to failure."};
  const previous=item.previousSets||[],targetSets=item.targetSets||item.sets.length;
  const repTargets=(item.targetReps||"").match(/\d+/g)?.map(Number)||[];
  const minimum=repTargets[0]||item.sets[0]?.reps||8,maximum=repTargets.at(-1)||minimum;
