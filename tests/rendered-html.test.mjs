@@ -86,7 +86,7 @@ test("ships v0.14c recurring supplement schedules and history calendar", async (
   assert.match(page, /Advanced supplement tracking/);
   assert.match(page, /advanced_supplement_tracking: false/);
   assert.match(supplements, /Concentration/);
-  assert.match(supplements, /Record actual dose/);
+  assert.match(supplements, /Record dose and date/);
   assert.match(supplements, /"ml",\s*"units",\s*"capsule"/);
   assert.match(supplements, /preset_dose_value/);
   assert.match(advancedMigration, /Immutable snapshot/);
@@ -98,6 +98,12 @@ test("ships v0.14c recurring supplement schedules and history calendar", async (
   assert.match(supplements, /Tap Taken to add or correct a missed log/);
   assert.match(supplements, /scheduledOn = today\(\)/);
   assert.match(supplements, /Weekly schedule — select every day/);
+  assert.match(supplements, /actual_taken_on/);
+  assert.match(supplements, /Actually taken on/);
+  assert.match(supplements, /carried over from/);
+  assert.match(supplements, /scheduledDate/);
+  assert.match(supplements, /on time/);
+  assert.match(supplements, /late/);
   assert.match(recurrenceMigration, /schedule_frequency in \('weekly', 'fortnightly', 'monthly'\)/);
   assert.match(supplements, /Custom number of days/);
   assert.match(supplements, /Previous records stay unchanged/);
