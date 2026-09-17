@@ -27,6 +27,7 @@ type Supplement = SupplementSchedule & {
 type Log = {
   supplement_id: string;
   scheduled_on: string;
+  actual_taken_on?: string | null;
   status: "taken" | "skipped";
   actual_dose_value?: number | null;
   actual_dose_unit?: string | null;
@@ -41,6 +42,12 @@ export type SupplementSummary = {
 };
 const localDate = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const dayDifference = (from: string, to: string) =>
+  Math.round(
+    (new Date(`${to}T12:00:00`).getTime() -
+      new Date(`${from}T12:00:00`).getTime()) /
+      86400000,
+  );
 const today = () => localDate(),
   days = [
     { value: 1, short: "M", label: "Monday" },
@@ -123,14 +130,14 @@ export function SupplementsArea({
         supabase
           .from("supplement_logs")
           .select(
-            "supplement_id,status,scheduled_on,actual_dose_value,actual_dose_unit,preset_dose_value,preset_dose_unit,concentration_mg_per_ml",
+            "supplement_id,status,scheduled_on,actual_taken_on,actual_dose_value,actual_dose_unit,preset_dose_value,preset_dose_unit,concentration_mg_per_ml",
           )
           .eq("user_id", userId)
           .eq("scheduled_on", today()),
         supabase
           .from("supplement_logs")
           .select(
-            "supplement_id,status,scheduled_on,actual_dose_value,actual_dose_unit,preset_dose_value,preset_dose_unit",
+            "supplement_id,status,scheduled_on,actual_taken_on,actual_dose_value,actual_dose_unit,preset_dose_value,preset_dose_unit",
           )
           .eq("user_id", userId)
           .gte("scheduled_on", localDate(start)),
@@ -150,11 +157,12 @@ export function SupplementsArea({
     const { data, error } = await supabase
       .from("supplement_logs")
       .select(
-        "supplement_id,status,scheduled_on,actual_dose_value,actual_dose_unit,preset_dose_value,preset_dose_unit",
+        "supplement_id,status,scheduled_on,actual_taken_on,actual_dose_value,actual_dose_unit,preset_dose_value,preset_dose_unit",
       )
       .eq("user_id", userId)
-      .gte("scheduled_on", first)
-      .lte("scheduled_on", last)
+      .or(
+        `and(scheduled_on.gte.${first},scheduled_on.lte.${last}),and(actual_taken_on.gte.${first},actual_taken_on.lte.${last})`,
+      )
       .order("scheduled_on");
     if (error) onNotice(error.message);
     else setCalendarLogs((data || []) as Log[]);
@@ -230,6 +238,7 @@ export function SupplementsArea({
     status: Log["status"],
     actualDose = item.dose_value,
     scheduledOn = today(),
+    actualTakenOn: string | null = status === "taken" ? scheduledOn : null,
   ) {
     const relevantLogs = scheduledOn === today() ? logs : calendarLogs;
     const existing = relevantLogs.find(
@@ -240,6 +249,7 @@ export function SupplementsArea({
         status,
         actual_dose_value: status === "taken" ? actualDose : null,
         actual_dose_unit: status === "taken" ? item.dose_unit : null,
+        actual_taken_on: status === "taken" ? actualTakenOn : null,
         recorded_at: new Date().toISOString(),
       },
       snapshot = {
@@ -267,7 +277,7 @@ export function SupplementsArea({
       setDosing(null);
       onNotice(
         status === "taken"
-          ? `${item.name} · ${actualDose} ${item.dose_unit} recorded for ${formatScheduleDate(scheduledOn)}`
+          ? `${item.name} · ${actualDose} ${item.dose_unit} recorded${actualTakenOn !== scheduledOn ? ` · scheduled ${formatScheduleDate(scheduledOn)}, taken ${formatScheduleDate(actualTakenOn || scheduledOn)}` : ` for ${formatScheduleDate(scheduledOn)}`}`
           : `${item.name} marked skipped for ${formatScheduleDate(scheduledOn)}`,
       );
       await load();
@@ -298,6 +308,19 @@ export function SupplementsArea({
         log.status === "taken" &&
         active.some((item) => item.id === log.supplement_id),
     ).length,
+    onTime = weekLogs.filter(
+      (log) =>
+        log.status === "taken" &&
+        log.actual_taken_on === log.scheduled_on &&
+        active.some((item) => item.id === log.supplement_id),
+    ).length,
+    late = weekLogs.filter(
+      (log) =>
+        log.status === "taken" &&
+        Boolean(log.actual_taken_on) &&
+        log.actual_taken_on !== log.scheduled_on &&
+        active.some((item) => item.id === log.supplement_id),
+    ).length,
     skipped = weekLogs.filter(
       (log) =>
         log.status === "skipped" &&
@@ -308,7 +331,7 @@ export function SupplementsArea({
     <div className="content-stack supps-area">
       <section className="section-head">
         <div>
-          <p className="eyebrow">PERSONAL RECORDS · V0.14E</p>
+          <p className="eyebrow">PERSONAL RECORDS · V0.14F</p>
           <h1>Supplements.</h1>
         </div>
         <button className="primary" onClick={() => setEditing("new")}>
@@ -330,8 +353,9 @@ export function SupplementsArea({
             <span>taken as scheduled</span>
           </div>
           <p>
-            <b>{taken}</b> taken · <b>{skipped}</b> skipped ·{" "}
-            <b>{Math.max(0, expected - taken - skipped)}</b> unrecorded
+            <b>{onTime}</b> on time · <b>{late}</b> late · <b>{skipped}</b>{" "}
+            skipped · <b>{Math.max(0, expected - taken - skipped)}</b>{" "}
+            unrecorded
           </p>
           <small>
             Unrecorded means no Taken or Skip choice was saved. It is not a
@@ -489,7 +513,10 @@ export function SupplementsArea({
           current={dosing.current}
           busy={busy}
           onClose={() => setDosing(null)}
-          onRecord={(dose) => record(dosing.item, "taken", dose, dosing.date)}
+          scheduledDate={dosing.date}
+          onRecord={(dose, actualDate) =>
+            record(dosing.item, "taken", dose, dosing.date, actualDate)
+          }
         />
       )}
     </div>
@@ -828,6 +855,12 @@ function SupplementHistory({
       ];
     }, [month]),
     selectedLogs = logs.filter((log) => log.scheduled_on === selectedDate),
+    carriedLogs = logs.filter(
+      (log) =>
+        log.status === "taken" &&
+        log.actual_taken_on === selectedDate &&
+        log.scheduled_on !== selectedDate,
+    ),
     selectedDay = new Date(`${selectedDate}T12:00:00`),
     canEdit = selectedDate <= today(),
     scheduledItems = items.filter(
@@ -878,14 +911,16 @@ function SupplementHistory({
           date ? (
             <button
               key={localDate(date)}
-              className={`${localDate(date) === selectedDate ? "selected" : ""} ${logs.some((log) => log.scheduled_on === localDate(date)) ? "recorded" : ""}`}
+              className={`${localDate(date) === selectedDate ? "selected" : ""} ${logs.some((log) => log.scheduled_on === localDate(date) || log.actual_taken_on === localDate(date)) ? "recorded" : ""}`}
               onClick={() => onSelect(localDate(date))}
               aria-label={`View ${formatScheduleDate(localDate(date))}`}
             >
               <span>{date.getDate()}</span>
-              {logs.some((log) => log.scheduled_on === localDate(date)) && (
-                <i />
-              )}
+              {logs.some(
+                (log) =>
+                  log.scheduled_on === localDate(date) ||
+                  log.actual_taken_on === localDate(date),
+              ) && <i />}
             </button>
           ) : (
             <span key={`blank-${index}`} />
@@ -897,63 +932,93 @@ function SupplementHistory({
           <strong>{formatScheduleDate(selectedDate)}</strong>
           {canEdit && <small>Tap Taken to add or correct a missed log.</small>}
         </div>
-        {visibleItems.length ? (
-          visibleItems.map((item) => {
-            const log = selectedLogs.find(
-                (entry) => entry.supplement_id === item.id,
-              ),
-              dose = log?.actual_dose_value ?? log?.preset_dose_value,
-              unit = log?.actual_dose_unit ?? log?.preset_dose_unit;
-            return (
-              <article key={`${item.id}-${selectedDate}`}>
-                <span className={log?.status || "unrecorded"}>
-                  {log?.status === "taken"
-                    ? "✓"
-                    : log?.status === "skipped"
-                      ? "—"
-                      : "○"}
-                </span>
-                <div className="supp-history-entry">
-                  <b>{item.name}</b>
-                  <small>
-                    {log?.status === "taken" && dose
-                      ? `${dose} ${unit} taken`
+        {visibleItems.length || carriedLogs.length ? (
+          <>
+            {visibleItems.map((item) => {
+              const log = selectedLogs.find(
+                  (entry) => entry.supplement_id === item.id,
+                ),
+                dose = log?.actual_dose_value ?? log?.preset_dose_value,
+                unit = log?.actual_dose_unit ?? log?.preset_dose_unit;
+              return (
+                <article key={`${item.id}-${selectedDate}`}>
+                  <span className={log?.status || "unrecorded"}>
+                    {log?.status === "taken"
+                      ? "✓"
                       : log?.status === "skipped"
-                        ? "Skipped"
-                        : `Scheduled · ${item.dose_value} ${item.dose_unit}`}
-                  </small>
-                </div>
-                {canEdit && (
-                  <div className="supp-history-actions">
-                    <button
-                      className={log?.status === "skipped" ? "selected" : ""}
-                      disabled={busy}
-                      onClick={() => onRecord(item, "skipped", selectedDate)}
-                    >
-                      Skip
-                    </button>
-                    {advanced && (
+                        ? "—"
+                        : "○"}
+                  </span>
+                  <div className="supp-history-entry">
+                    <b>{item.name}</b>
+                    <small>
+                      {log?.status === "taken" && dose
+                        ? `${dose} ${unit} taken${log.actual_taken_on && log.actual_taken_on !== log.scheduled_on ? ` ${formatScheduleDate(log.actual_taken_on)} · ${Math.abs(dayDifference(log.scheduled_on, log.actual_taken_on))} day${Math.abs(dayDifference(log.scheduled_on, log.actual_taken_on)) === 1 ? "" : "s"} ${dayDifference(log.scheduled_on, log.actual_taken_on) > 0 ? "late" : "early"}` : " on time"}`
+                        : log?.status === "skipped"
+                          ? "Skipped"
+                          : `Scheduled · ${item.dose_value} ${item.dose_unit}`}
+                    </small>
+                  </div>
+                  {canEdit && (
+                    <div className="supp-history-actions">
+                      <button
+                        className={log?.status === "skipped" ? "selected" : ""}
+                        disabled={busy}
+                        onClick={() => onRecord(item, "skipped", selectedDate)}
+                      >
+                        Skip
+                      </button>
                       <button
                         disabled={busy}
                         onClick={() => onAdjustDose(item, selectedDate, log)}
                       >
-                        Dose
+                        {advanced ? "Dose / date" : "Other day"}
                       </button>
-                    )}
-                    <button
-                      className={
-                        log?.status === "taken" ? "taken selected" : "taken"
-                      }
-                      disabled={busy}
-                      onClick={() => onRecord(item, "taken", selectedDate)}
-                    >
-                      ✓ Taken
-                    </button>
+                      <button
+                        className={
+                          log?.status === "taken" ? "taken selected" : "taken"
+                        }
+                        disabled={busy}
+                        onClick={() => onRecord(item, "taken", selectedDate)}
+                      >
+                        ✓ Taken
+                      </button>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+            {carriedLogs.map((log) => {
+              const item = items.find(
+                  (value) => value.id === log.supplement_id,
+                ),
+                dose = log.actual_dose_value ?? log.preset_dose_value,
+                unit = log.actual_dose_unit ?? log.preset_dose_unit;
+              if (!item) return null;
+              return (
+                <article
+                  className="carried-dose"
+                  key={`carried-${item.id}-${log.scheduled_on}`}
+                >
+                  <span className="taken">↪</span>
+                  <div className="supp-history-entry">
+                    <b>{item.name}</b>
+                    <small>
+                      {dose} {unit} taken · carried over from{" "}
+                      {formatScheduleDate(log.scheduled_on)}
+                    </small>
                   </div>
-                )}
-              </article>
-            );
-          })
+                  <button
+                    className="edit-carried-dose"
+                    disabled={busy}
+                    onClick={() => onAdjustDose(item, log.scheduled_on, log)}
+                  >
+                    Edit
+                  </button>
+                </article>
+              );
+            })}
+          </>
         ) : (
           <p>No supplements were scheduled or recorded for this day.</p>
         )}
@@ -965,18 +1030,23 @@ function SupplementHistory({
 function DoseRecorder({
   item,
   current,
+  scheduledDate,
   busy,
   onClose,
   onRecord,
 }: {
   item: Supplement;
   current?: Log;
+  scheduledDate: string;
   busy: boolean;
   onClose: () => void;
-  onRecord: (dose: number) => void;
+  onRecord: (dose: number, actualDate: string) => void;
 }) {
   const [dose, setDose] = useState(
       Number(current?.actual_dose_value ?? item.dose_value),
+    ),
+    [actualDate, setActualDate] = useState(
+      current?.actual_taken_on || scheduledDate,
     ),
     activeMg =
       item.dose_unit === "ml" && item.concentration_mg_per_ml
@@ -987,7 +1057,7 @@ function DoseRecorder({
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          onRecord(dose);
+          onRecord(dose, actualDate);
         }}
       >
         <header>
@@ -1006,6 +1076,20 @@ function DoseRecorder({
           </strong>
           <small>This saved schedule will not be changed.</small>
         </div>
+        <label>
+          Scheduled for
+          <input type="date" value={scheduledDate} disabled />
+        </label>
+        <label>
+          Actually taken on
+          <input
+            type="date"
+            value={actualDate}
+            max={today()}
+            onChange={(event) => setActualDate(event.target.value)}
+            required
+          />
+        </label>
         <label>
           Dose taken <span>{item.dose_unit}</span>
           <input
@@ -1028,8 +1112,8 @@ function DoseRecorder({
           This entry is stored as a dated snapshot. Future changes to the preset
           will not alter it.
         </p>
-        <button className="primary" disabled={busy || !dose}>
-          {busy ? "Saving…" : "Record actual dose"}
+        <button className="primary" disabled={busy || !dose || !actualDate}>
+          {busy ? "Saving…" : "Record dose and date"}
         </button>
       </form>
     </div>
