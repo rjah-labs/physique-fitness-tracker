@@ -1,10 +1,10 @@
 import {supabase} from "./supabase";
 import {exerciseCatalog,type Exercise} from "./exercise-catalog";
 
-export type LoggedSet={weight:number;reps:number;done:boolean};
-export type ActiveExercise={exercise:Exercise;sets:LoggedSet[];previousSets?:Array<{weight:number;reps:number}>;targetSets?:number;targetReps?:string};
+export type LoggedSet={weight:number|null;reps:number|null;done:boolean};
+export type ActiveExercise={exercise:Exercise;sets:LoggedSet[];notes?:string;previousSets?:Array<{weight:number;reps:number}>;targetSets?:number;targetReps?:string};
 export type ActiveWorkoutDraft={name:string;startedAt:string;updatedAt?:string;items:ActiveExercise[];programDay?:number;programActivatedAt?:string};
-export type WorkoutHistoryExercise={exerciseId:string;name:string;sets:Array<{setNumber:number;weight:number;reps:number;volume:number}>};
+export type WorkoutHistoryExercise={exerciseId:string;name:string;notes:string;sets:Array<{setNumber:number;weight:number;reps:number;volume:number}>};
 export type WorkoutHistory={id:string;name:string;startedAt:string;completedAt:string;setCount:number;volume:number;exerciseNames:string[];exercises:WorkoutHistoryExercise[]};
 export type TemplateExercise={exercise:Exercise;targetSets:number;targetReps:string};
 export type WorkoutTemplate={id:string;name:string;notes:string;items:TemplateExercise[];createdAt:string;updatedAt:string};
@@ -12,7 +12,6 @@ export type WorkoutTemplate={id:string;name:string;notes:string;items:TemplateEx
 export type ProgressionSuggestion={kind:"baseline"|"build-reps"|"add-load"|"recover";title:string;detail:string;suggestedWeight?:number};
 
 export function progressionSuggestion(item:ActiveExercise):ProgressionSuggestion{
- if(item.exercise.intent==="power")return{kind:"baseline",title:"Quality and speed first",detail:"Keep the prescribed low reps. Reset each rep and stop when jump height, speed or landing control declines. Never progress by adding fatigue, slow reps or training to failure."};
  const previous=item.previousSets||[],targetSets=item.targetSets||item.sets.length;
  const repTargets=(item.targetReps||"").match(/\d+/g)?.map(Number)||[];
  const minimum=repTargets[0]||item.sets[0]?.reps||8,maximum=repTargets.at(-1)||minimum;
@@ -35,14 +34,14 @@ export const workoutRepository={
   const workoutId=crypto.randomUUID();
   const {error:wErr}=await supabase.from("workouts").insert({id:workoutId,user_id:userId,name:name.trim()||"Workout",started_at:startedAt,completed_at:new Date().toISOString(),program_day:program?.day||null,training_program_activated_at:program?.activatedAt||null});if(wErr)throw wErr;
   for(let i=0;i<items.length;i++){const item=items[i],exerciseId=crypto.randomUUID();
-   const {error:eErr}=await supabase.from("workout_exercises").insert({id:exerciseId,user_id:userId,workout_id:workoutId,exercise_id:item.exercise.id,exercise_name:item.exercise.name,sort_order:i});if(eErr)throw eErr;
-   const rows=item.sets.filter(s=>s.done).map((set,index)=>({user_id:userId,workout_id:workoutId,workout_exercise_id:exerciseId,set_number:index+1,weight_kg:set.weight,reps:set.reps,completed:true}));
+   const {error:eErr}=await supabase.from("workout_exercises").insert({id:exerciseId,user_id:userId,workout_id:workoutId,exercise_id:item.exercise.id,exercise_name:item.exercise.name,sort_order:i,notes:item.notes?.trim()||null});if(eErr)throw eErr;
+   const rows=item.sets.filter(s=>s.done).map((set,index)=>({user_id:userId,workout_id:workoutId,workout_exercise_id:exerciseId,set_number:index+1,weight_kg:set.weight??0,reps:set.reps??0,completed:true}));
    if(rows.length){const {error:sErr}=await supabase.from("workout_sets").insert(rows);if(sErr)throw sErr}
   }
  },
  async history():Promise<WorkoutHistory[]>{
-  const {data,error}=await supabase.from("workouts").select("id,name,started_at,completed_at,workout_exercises(exercise_id,exercise_name,sort_order,workout_sets(set_number,weight_kg,reps,completed))").not("completed_at","is",null).order("started_at",{ascending:false}).limit(30);if(error)throw error;
-  return (data||[]).map((w:any)=>{const exercises=(w.workout_exercises||[]).sort((a:any,b:any)=>a.sort_order-b.sort_order).map((exercise:any)=>({exerciseId:exercise.exercise_id,name:exercise.exercise_name,sets:(exercise.workout_sets||[]).filter((set:any)=>set.completed).sort((a:any,b:any)=>a.set_number-b.set_number).map((set:any)=>{const weight=Number(set.weight_kg||0),reps=Number(set.reps||0);return{setNumber:Number(set.set_number),weight,reps,volume:weight*reps}})}));const sets=exercises.flatMap((exercise:WorkoutHistoryExercise)=>exercise.sets);return{id:w.id,name:w.name,startedAt:w.started_at,completedAt:w.completed_at,setCount:sets.length,volume:sets.reduce((n:number,set:{volume:number})=>n+set.volume,0),exerciseNames:exercises.map((exercise:WorkoutHistoryExercise)=>exercise.name),exercises}})
+  const {data,error}=await supabase.from("workouts").select("id,name,started_at,completed_at,workout_exercises(exercise_id,exercise_name,sort_order,notes,workout_sets(set_number,weight_kg,reps,completed))").not("completed_at","is",null).order("started_at",{ascending:false}).limit(30);if(error)throw error;
+  return (data||[]).map((w:any)=>{const exercises=(w.workout_exercises||[]).sort((a:any,b:any)=>a.sort_order-b.sort_order).map((exercise:any)=>({exerciseId:exercise.exercise_id,name:exercise.exercise_name,notes:exercise.notes||"",sets:(exercise.workout_sets||[]).filter((set:any)=>set.completed).sort((a:any,b:any)=>a.set_number-b.set_number).map((set:any)=>{const weight=Number(set.weight_kg||0),reps=Number(set.reps||0);return{setNumber:Number(set.set_number),weight,reps,volume:weight*reps}})}));const sets=exercises.flatMap((exercise:WorkoutHistoryExercise)=>exercise.sets);return{id:w.id,name:w.name,startedAt:w.started_at,completedAt:w.completed_at,setCount:sets.length,volume:sets.reduce((n:number,set:{volume:number})=>n+set.volume,0),exerciseNames:exercises.map((exercise:WorkoutHistoryExercise)=>exercise.name),exercises}})
  },
  async templates():Promise<WorkoutTemplate[]>{
   const {data,error}=await supabase.from("workout_templates").select("id,name,notes,created_at,updated_at,workout_template_exercises(exercise_id,sort_order,target_sets,target_reps)").order("updated_at",{ascending:false});if(error)throw error;

@@ -25,7 +25,7 @@ type UserPreferences = {
   advanced_supplement_tracking: boolean;
 };
 
-const APP_VERSION = "V0.15C";
+const APP_VERSION = "V0.16A";
 
 const defaultPreferences: UserPreferences = {
   measurement_interval_days: 14,
