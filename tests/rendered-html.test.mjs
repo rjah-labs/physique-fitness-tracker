@@ -23,7 +23,7 @@ test("server-renders the Physique application shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
-test("ships v0.15b exercise guides and supplement history", async () => {
+test("ships v0.15c exercise guides and supplement history", async () => {
   const [page, workouts, repository, generator, profile, ownerAnalytics, migration, supplementMigration, weekdayMigration, advancedMigration, recurrenceMigration, schedule, supplements, dispatch, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/workouts.tsx", import.meta.url), "utf8"),
@@ -41,7 +41,7 @@ test("ships v0.15b exercise guides and supplement history", async () => {
     readFile(new URL("../supabase/functions/notification-dispatch/index.ts", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /const APP_VERSION = "V0\.15B"/);
+  assert.match(page, /const APP_VERSION = "V0\.15C"/);
   assert.match(page, /Measurements, weight and progress photos are optional/);
   assert.match(page, /Start training/);
   assert.match(page, /No baseline required/);
