@@ -1,6 +1,6 @@
 export type MuscleGroup="Glutes"|"Legs"|"Back"|"Chest"|"Shoulders"|"Arms"|"Core"|"Cardio";
 export type TrackingType="weight_reps"|"reps"|"duration"|"distance";
-export type Exercise={id:string;name:string;group:MuscleGroup;equipment:string;restSeconds:number;tracking:TrackingType;aliases?:string[]};
+export type Exercise={id:string;name:string;group:MuscleGroup;equipment:string;restSeconds:number;tracking:TrackingType;intent?:"power"|"hypertrophy";coachingNotes?:string;aliases?:string[]};
 
 export const muscleIcons:Record<MuscleGroup,string>={Glutes:"🍑",Legs:"🦵",Back:"🦅",Chest:"🫀",Shoulders:"🏹",Arms:"💪",Core:"⚡",Cardio:"🫁"};
 const groups:Record<MuscleGroup,string[]>={
@@ -40,3 +40,7 @@ exerciseCatalog.push(
   {"id":"countermovement-jump","name":"Countermovement jump","group":"Legs","equipment":"Bodyweight","restSeconds":180,"tracking":"reps"},
   {"id":"trap-bar-jump","name":"Trap-bar jump","group":"Legs","equipment":"Trap bar","restSeconds":180,"tracking":"weight_reps"}
 );
+
+for (const id of ["countermovement-jump","trap-bar-jump"]) {
+ const item=exerciseCatalog.find(exercise=>exercise.id===id);if(item)item.intent="power";
+}

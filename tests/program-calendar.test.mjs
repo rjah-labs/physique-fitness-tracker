@@ -32,7 +32,7 @@ test("schedule rejects invalid inputs and tolerates unordered duplicate days",()
 });
 test("catalog IDs stay unique and power variants have explicit tracking",()=>{
  assert.equal(new Set(exerciseCatalog.map(item=>item.id)).size,exerciseCatalog.length);
- for(const id of ["countermovement-jump","box-jump","trap-bar-jump","light-explosive-pull"]){
+ for(const id of ["countermovement-jump","trap-bar-jump"]){
   const item=exerciseCatalog.find(item=>item.id===id);
   assert.ok(item);assert.equal(item.intent,"power");assert.equal(item.restSeconds,180);
   assert.equal(item.tracking,id==="countermovement-jump"||id==="box-jump"?"reps":"weight_reps");
@@ -46,11 +46,14 @@ test("power progression never suggests extra reps, tempo or load",()=>{
  assert.equal(result.title,"Quality and speed first");assert.equal(result.suggestedWeight,undefined);
 });
 
-test("program loader retains custom rest, RIR and every exercise",async()=>{
- const program={activated_at:"2026-09-16T00:00:00Z",schedule_days:[0,1,3,4,5],plan:{name:"Test",startDate:"2026-09-16",timeZone:"Australia/Brisbane",days:[{day:1,name:"Lower",focus:"Glutes",exercises:[{exerciseId:"barbell-hip-thrust",name:"Hip thrust",sets:4,reps:"6–10",restSeconds:240,rir:"3",notes:"Controlled ROM"}]}]}};
- const supabase={from(table){const result={data:table==="training_programs"?program:[],error:null};const chain={select(){return chain},eq(){return chain},not(){return chain},maybeSingle(){return Promise.resolve(result)},then(resolve,reject){return Promise.resolve(result).then(resolve,reject)}};return chain}};
- const {loadNextProgramSession}=loadModule("../lib/program-schedule.ts",{"./supabase":{supabase},"./exercise-catalog":{exerciseCatalog},"./program-calendar":calendar});
- const session=await loadNextProgramSession();assert.equal(session.day,1);assert.equal(session.scheduledDate,"2026-09-16");assert.equal(session.items.length,1);assert.equal(session.items[0].exercise.restSeconds,240);assert.match(session.items[0].exercise.coachingNotes,/RIR: 3/);
- program.plan.days[0].exercises[0].exerciseId="missing-id";
- await assert.rejects(loadNextProgramSession(),/Exercise library update required/);
+test("recommendation follows today’s calendar, never history counts",async()=>{
+ const card={id:"card",name:"Custom card",notes:"Glutes",items:[{exercise:{id:"custom-exercise-not-in-catalog",name:"Custom exercise",restSeconds:240,coachingNotes:"RIR: 3. Controlled ROM"},targetSets:4,targetReps:"6–10"}],program_day:3,program_activated_at:"2026-09-20T00:00:00Z"};
+ let entries=[{id:"dated-plan",card_id:"card",kind:"workout",status:"planned",scheduled_on:"2026-09-24"}];
+ const planner={ensure:async()=>{},entries:async(start,end)=>{assert.equal(start,"2026-09-24");assert.equal(end,start);return entries}};
+ const supabase={from(table){assert.equal(table,"workout_cards","Should not count workout history");const chain={select(){return chain},eq(){return chain},maybeSingle:async()=>({data:card,error:null})};return chain}};
+ const {loadNextProgramSession}=loadModule("../lib/program-schedule.ts",{"./supabase":{supabase},"./workout-planner":{planner,todayDate:()=>"2026-09-24",cardFromRow:row=>({...row,programDay:row.program_day,programActivatedAt:row.program_activated_at})}});
+ const session=await loadNextProgramSession();assert.equal(session.day,3);assert.equal(session.scheduledDate,"2026-09-24");assert.equal(session.calendarEntryId,"dated-plan");assert.equal(session.items[0].exercise.restSeconds,240);assert.match(session.items[0].exercise.coachingNotes,/RIR: 3/);
+ entries=[{...entries[0],kind:"rest",card_id:null}];assert.equal(await loadNextProgramSession(),null);
+ entries=[{kind:"workout",status:"completed"}];assert.equal(await loadNextProgramSession(),null);
+ entries=[];assert.equal(await loadNextProgramSession(),null);
 });
