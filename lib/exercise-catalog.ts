@@ -28,3 +28,15 @@ export const starterTemplates=[
  {name:"Upper Body — Pull",exerciseIds:["lat-pulldown","chest-supported-row","one-arm-dumbbell-row","face-pulls","hammer-curl"]},
  {name:"Full Body",exerciseIds:["back-squat","barbell-bench-press","seated-cable-row","romanian-deadlift","plank"]}
 ];
+
+// Variations referenced by imported hypertrophy programs must resolve before a session can load.
+exerciseCatalog.push(
+  {"id":"neutral-grip-lat-pulldown","name":"Neutral-grip lat pulldown","group":"Back","equipment":"Cable","restSeconds":180,"tracking":"weight_reps"},
+  {"id":"machine-high-row","name":"Machine high row","group":"Back","equipment":"Machine","restSeconds":150,"tracking":"weight_reps"},
+  {"id":"machine-chest-supported-row","name":"Machine chest-supported row","group":"Back","equipment":"Machine","restSeconds":150,"tracking":"weight_reps"},
+  {"id":"low-incline-dumbbell-press","name":"Low-incline dumbbell press","group":"Chest","equipment":"Dumbbell","restSeconds":180,"tracking":"weight_reps"},
+  {"id":"glute-biased-smith-split-squat","name":"Glute-biased Smith split squat","group":"Glutes","equipment":"Smith machine","restSeconds":150,"tracking":"weight_reps"},
+  {"id":"glute-biased-reverse-lunge","name":"Glute-biased reverse lunge","group":"Glutes","equipment":"Dumbbell","restSeconds":150,"tracking":"weight_reps"},
+  {"id":"countermovement-jump","name":"Countermovement jump","group":"Legs","equipment":"Bodyweight","restSeconds":180,"tracking":"reps"},
+  {"id":"trap-bar-jump","name":"Trap-bar jump","group":"Legs","equipment":"Trap bar","restSeconds":180,"tracking":"weight_reps"}
+);
