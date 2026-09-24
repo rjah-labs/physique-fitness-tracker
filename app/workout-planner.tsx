@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useState} from 'react';
-import {planner,todayDate,monthDates,calendarStatus,type CalendarEntry} from '../lib/workout-planner';
+import {planner,todayDate,monthDates,addDays,calendarStatus,type CalendarEntry} from '../lib/workout-planner';
 import type {WorkoutTemplate} from '../lib/workout-repository';
 import {muscleIcons} from '../lib/exercise-catalog';
 import './workout-planner.css';
@@ -9,11 +9,11 @@ const message=(error:unknown)=>error instanceof Error?error.message:(error as {m
 const dateLabel=(date:string)=>new Date(date+'T12:00:00').toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'short'});
 export function WorkoutPlanner({cards,mode,onStart,onEdit,onChanged,onError}:Props){
  const today=todayDate();const [month,setMonth]=useState(today.slice(0,7)),[selected,setSelected]=useState(today),[entries,setEntries]=useState<CalendarEntry[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const [detail,setDetail]=useState<WorkoutTemplate|null>(null),[choice,setChoice]=useState<WorkoutTemplate|null>(null),[selectedCard,setSelectedCard]=useState(''),[weeks,setWeeks]=useState(1),[moveDate,setMoveDate]=useState('');
+ const [detail,setDetail]=useState<WorkoutTemplate|null>(null),[choice,setChoice]=useState<WorkoutTemplate|null>(null),[selectedCard,setSelectedCard]=useState(''),[repeat,setRepeat]=useState(0),[count,setCount]=useState(4),[moveDate,setMoveDate]=useState('');
  const dates=monthDates(month),entry=entries.find(e=>e.scheduled_on===selected),todayEntry=entries.find(e=>e.scheduled_on===today),recommended=cards.find(c=>c.id===todayEntry?.card_id);
  async function refresh(){setLoading(true);try{const start=dates[0]<today?dates[0]:today,end=dates[41]>today?dates[41]:today;setEntries(await planner.entries(start,end));setError('')}catch(e){setError(message(e))}finally{setLoading(false)}}
  useEffect(()=>{void refresh()},[month,cards,today]);
- useEffect(()=>{setSelectedCard(entry?.card_id||'');setWeeks(1);setMoveDate('')},[selected,entry?.id,entry?.card_id]);
+ useEffect(()=>{setSelectedCard(entry?.card_id||'');setRepeat(0);setCount(4);setMoveDate('')},[selected,entry?.id,entry?.card_id]);
  async function act(action:()=>Promise<unknown>){setBusy(true);try{await action();await refresh();onChanged()}catch(e){const text=message(e);setError(text);onError(text)}finally{setBusy(false)}}
  function requestStart(card:WorkoutTemplate){if(todayEntry?.status==='planned'&&todayEntry.kind==='workout'&&todayEntry.card_id===card.id){onStart(card,todayEntry);return}if(todayEntry&&todayEntry.status==='planned'){setChoice(card);return}onStart(card)}
  function navigateMonth(delta:number){const d=new Date(month+'-01T12:00:00Z');d.setUTCMonth(d.getUTCMonth()+delta);setMonth(d.toISOString().slice(0,7))}
@@ -29,13 +29,14 @@ export function WorkoutPlanner({cards,mode,onStart,onEdit,onChanged,onError}:Pro
    <div className="calendar-day-editor"><p className="eyebrow">{dateLabel(selected)}</p><h3>{entry?.kind==='workout'?cards.find(c=>c.id===entry.card_id)?.name||'Saved workout':entry?.kind==='rest'?'Rest day':'Plan this day'}</h3>{entry&&<p className="calendar-state">{calendarStatus(entry,today)}{entry.moved_to?` to ${dateLabel(entry.moved_to)}`:''}</p>}
     {entry?.status==='completed'?<p>This planned session is complete. You can start another saved card as an extra workout.</p>:<>
      <label>Workout<select aria-label="Workout for selected date" value={selectedCard} onChange={e=>setSelectedCard(e.target.value)}><option value="">Rest day</option>{cards.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-     <label>Repeat<select aria-label="Repeat workout" value={weeks} onChange={e=>setWeeks(Number(e.target.value))}>{[1,2,4,8,12].map(n=><option key={n} value={n}>{n===1?'This date only':`Weekly · ${n} weeks`}</option>)}</select></label>
-     {weeks>1&&<small>Repeats fill empty dates only. Existing workouts and rest days stay as planned.</small>}
-     <button className="primary" disabled={busy||loading} onClick={()=>void act(()=>planner.plan(selected,selectedCard||null,weeks))}>{busy?'Saving…':'Save calendar plan'}</button>
+     <label>Repeat<select aria-label="Repeat workout" value={repeat} onChange={e=>setRepeat(Number(e.target.value))}><option value={0}>This date only</option><option value={1}>Every week</option><option value={2}>Every 2 weeks</option></select></label>
+     {repeat>0&&<><label>{repeat===2?'Number of fortnights':'Number of weeks'}<input aria-label="Repeat count" type="number" inputMode="numeric" min={1} max={104} step={1} value={Number.isNaN(count)?'':count} onChange={e=>setCount(e.target.value===''?NaN:Number(e.target.value))}/></label><small>{Number.isInteger(count)&&count>=1&&count<=104?`${count} ${count===1?'session':'sessions'}, including this date. Last date: ${dateLabel(addDays(selected,(count-1)*repeat*7))}.`:'Enter a whole number from 1 to 104.'}</small></>}
+     {repeat>0&&<small>Repeats fill empty dates only. Existing workouts and rest days stay as planned.</small>}
+     <button className="primary" disabled={busy||loading||(repeat>0&&(!Number.isInteger(count)||count<1||count>104))} onClick={()=>void act(()=>planner.plan(selected,selectedCard||null,repeat?count:1,repeat||1))}>{busy?'Saving…':'Save calendar plan'}</button>
      {entry&&<div className="planner-actions">{entry.status==='planned'&&entry.kind==='workout'&&<button disabled={busy} onClick={()=>void act(()=>planner.skip(entry.id))}>Skip session</button>}<button disabled={busy} onClick={()=>void act(()=>planner.clear(entry.id))}>Clear date</button></div>}
      {entry?.status==='planned'&&entry.kind==='workout'&&<div className="reschedule"><label>Move to an empty date<input aria-label="Reschedule date" type="date" value={moveDate} onChange={e=>setMoveDate(e.target.value)}/></label><button disabled={busy||!moveDate||moveDate===selected} onClick={()=>void act(()=>planner.move(entry.id,moveDate))}>Reschedule</button></div>}
     </>}
-   </div><p className="soft-note">Plans repeat only for the number of weeks you choose. Extend them here whenever you need. Your saved cards are always available.</p>
+   </div><p className="soft-note">Plans repeat only for the number of weeks or fortnights you choose. Extend them here whenever you need. Your saved cards are always available.</p>
   </section>}
   {detail&&<div className="sheet-backdrop" onClick={()=>setDetail(null)}><section className="sheet workout-detail" role="dialog" aria-modal="true" aria-label={detail.name} onClick={e=>e.stopPropagation()}><div className="sheet-head"><h2>{detail.name}</h2><button aria-label="Close workout details" onClick={()=>setDetail(null)}>×</button></div><div className="workout-detail-scroll"><p>{detail.notes}</p>{detail.items.map((item,i)=><article key={i}><h3>{i+1}. {item.exercise.name}</h3><p>{item.targetSets} × {item.targetReps} · {item.exercise.restSeconds}s rest</p><small>{item.exercise.coachingNotes}</small></article>)}</div><div className="planner-actions"><button onClick={()=>{onEdit(detail);setDetail(null)}}>Edit card</button><button className="primary" onClick={()=>{requestStart(detail);setDetail(null)}}>Start workout</button></div></section></div>}
   {choice&&<div className="sheet-backdrop"><section className="sheet start-choice" role="dialog" aria-modal="true" aria-label="Choose how to start"><div className="sheet-head"><h2>Start {choice.name}?</h2><button aria-label="Cancel start" disabled={busy} onClick={()=>setChoice(null)}>×</button></div><p>Today already has {todayEntry?.kind==='rest'?'a rest day':`“${recommended?.name||'a workout'}”`} planned.</p><button disabled={busy} className="primary" onClick={()=>void act(async()=>{const card=choice;const id=await planner.plan(today,card.id);setChoice(null);onStart(card,{id,scheduled_on:today,card_id:card.id,kind:'workout',status:'planned',moved_to:null})})}>Replace today’s plan</button><button disabled={busy} onClick={()=>{onStart(choice);setChoice(null)}}>Start as an extra workout</button><small>An extra workout leaves your calendar plan unchanged.</small></section></div>}

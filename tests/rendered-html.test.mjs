@@ -41,7 +41,7 @@ test("ships v0.17 saved workout cards and calendar", async () => {
     readFile(new URL("../supabase/functions/notification-dispatch/index.ts", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /const APP_VERSION = "V0\.17"/);
+  assert.match(page, /const APP_VERSION = "V0\.17\.1"/);
   assert.match(page, /Measurements, weight and progress photos are optional/);
   assert.match(page, /Start training/);
   assert.match(page, /No baseline required/);
