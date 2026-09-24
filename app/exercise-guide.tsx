@@ -5,6 +5,7 @@ import {getExerciseGuide} from "../lib/exercise-guides";
 
 function GuideContent({exercise}:{exercise:Exercise}){
  const guide=getExerciseGuide(exercise);
+ if(!guide)return <p className="guide-summary">A technique guide has not been added for this custom exercise yet.</p>;
  return <div className="exercise-guide-content">
   {guide.image&&<figure><img src={guide.image} alt={`Two-position technique illustration for ${exercise.name}`}/><figcaption>Start position · working position</figcaption></figure>}
   <p className="guide-summary">{guide.summary}</p>

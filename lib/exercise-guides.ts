@@ -1,4 +1,5 @@
-import type {Exercise,MuscleGroup} from "./exercise-catalog";
+import type {Exercise} from "./exercise-catalog";
+import {additionalExerciseGuides} from "./exercise-guide-library";
 
 export type ExerciseGuide={summary:string;primary:string[];secondary:string[];setup:string[];steps:string[];cues:string[];mistakes:string[];substitutions:string[];image?:string};
 
@@ -12,6 +13,6 @@ const guides:Record<string,ExerciseGuide>={
  "hip-abduction-machine":{image:"./exercise-guides/hip-abduction-machine.jpg",summary:"A seated hip-abduction exercise that trains the side glutes by moving the thighs apart against resistance.",primary:["Gluteus medius","Gluteus minimus"],secondary:["Upper gluteus maximus"],setup:["Sit securely with the pads against the outer thighs.","Choose a torso position you can keep still and set a comfortable starting range."],steps:["Press the knees apart smoothly.","Pause without bouncing at the widest controlled position.","Return slowly while keeping tension."],cues:["Pelvis stays still","Lead with the knees","Control both directions"],mistakes:["Bouncing the pads","Using a range that rotates the pelvis","Letting the stack slam"],substitutions:["Cable hip abduction","Banded lateral walk","Side-lying hip abduction"]}
 };
 
-const groupMuscles:Record<MuscleGroup,string[]>={Glutes:["Glutes"],Legs:["Quadriceps","Hamstrings","Calves"],Back:["Lats","Upper back"],Chest:["Pectorals"],Shoulders:["Deltoids"],Arms:["Biceps","Triceps"],Core:["Abdominals","Deep core"],Cardio:["Cardiovascular system"]};
-
-export function getExerciseGuide(exercise:Exercise):ExerciseGuide{return guides[exercise.id]||{summary:`A ${exercise.equipment.toLowerCase()} exercise used to train the ${exercise.group.toLowerCase()} with controlled technique.`,primary:groupMuscles[exercise.group],secondary:["Core and stabilisers"],setup:["Set the equipment to a comfortable position and choose a manageable starting load.","Create a stable stance and brace before the first repetition."],steps:["Move through a controlled, pain-free range.","Pause briefly at the working end of the movement.","Return slowly while maintaining the same body position."],cues:["Stay controlled","Keep joints tracking naturally","Stop before technique changes"],mistakes:["Using momentum","Selecting more load than can be controlled","Rushing the lowering phase"],substitutions:[`Another ${exercise.group.toLowerCase()} exercise using available equipment`]};}
+// Unknown custom exercises must not display generic text as a completed guide.
+export const exerciseGuides:Readonly<Record<string,ExerciseGuide>>={...additionalExerciseGuides,...guides};
+export function getExerciseGuide(exercise:Exercise):ExerciseGuide|undefined{return exerciseGuides[exercise.id];}

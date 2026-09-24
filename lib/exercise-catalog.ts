@@ -31,6 +31,8 @@ export const starterTemplates=[
 
 // Variations referenced by imported hypertrophy programs must resolve before a session can load.
 exerciseCatalog.push(
+  {id:"single-arm-cable-lat-row",name:"Single-arm cable lat row",group:"Back",equipment:"Cable",restSeconds:120,tracking:"weight_reps",intent:"hypertrophy",aliases:["Single arm cable row","Cable lat row"]},
+  {id:"smith-reverse-lunge",name:"Smith reverse lunge",group:"Legs",equipment:"Smith machine",restSeconds:150,tracking:"weight_reps",intent:"hypertrophy",aliases:["Smith machine reverse lunge"]},
   {"id":"neutral-grip-lat-pulldown","name":"Neutral-grip lat pulldown","group":"Back","equipment":"Cable","restSeconds":180,"tracking":"weight_reps"},
   {"id":"machine-high-row","name":"Machine high row","group":"Back","equipment":"Machine","restSeconds":150,"tracking":"weight_reps"},
   {"id":"machine-chest-supported-row","name":"Machine chest-supported row","group":"Back","equipment":"Machine","restSeconds":150,"tracking":"weight_reps"},
@@ -44,3 +46,34 @@ exerciseCatalog.push(
 for (const id of ["countermovement-jump","trap-bar-jump"]) {
  const item=exerciseCatalog.find(exercise=>exercise.id===id);if(item)item.intent="power";
 }
+
+// Names alone cannot infer equipment: e.g. a leg curl is not bodyweight and
+// a barbell row is not a rowing machine. Keep library guide headers accurate.
+const equipmentOverrides:Record<string,string>={
+ "glute-bridge-weighted":"Barbell / Dumbbell", "glute-biased-bulgarian-split-squat":"Dumbbell / Bench",
+ "glute-biased-back-extension":"Back extension bench", "reverse-hyperextension":"Machine",
+ "single-leg-hip-thrust":"Bench", "back-squat":"Barbell", "front-squat":"Barbell",
+ "goblet-squat":"Dumbbell / Kettlebell", "sumo-squat":"Dumbbell / Kettlebell", "belt-squat":"Machine",
+ "leg-extension":"Machine", "walking-lunges":"Bodyweight / Dumbbell", "reverse-lunges":"Bodyweight / Dumbbell",
+ "bulgarian-split-squat":"Bodyweight / Dumbbell / Bench", "step-ups":"Step / Dumbbell",
+ "romanian-deadlift":"Barbell", "single-leg-romanian-deadlift":"Dumbbell", "sumo-deadlift":"Barbell",
+ "conventional-deadlift":"Barbell", "lying-leg-curl":"Machine", "seated-leg-curl":"Machine",
+ "nordic-hamstring-curl":"Ankle anchor / Pad", "standing-calf-raise":"Machine / Dumbbell",
+ "seated-calf-raise":"Machine", "single-leg-calf-raise":"Step / Dumbbell", "t-bar-row":"Landmine / Machine",
+ "meadows-row":"Landmine", "lat-pulldown":"Cable", "close-grip-pulldown":"Cable",
+ "single-arm-pulldown":"Cable", "straight-arm-pulldown":"Cable", "assisted-pull-ups":"Machine / Band",
+ "inverted-row":"Fixed bar", "face-pulls":"Cable", "rack-pull":"Barbell / Rack",
+ "decline-bench-press":"Barbell / Bench", "smith-machine-bench-press":"Smith machine",
+ "deficit-push-ups":"Push-up handles", "chest-dips":"Parallel bars", "arnold-press":"Dumbbell",
+ "landmine-press":"Landmine", "lateral-raise":"Dumbbell", "front-raise":"Dumbbell",
+ "rear-delt-fly":"Dumbbell / Cable", "upright-row":"Barbell / Cable", "lu-raise":"Weight plates",
+ "ez-bar-curl":"EZ-bar", "alternating-dumbbell-curl":"Dumbbell", "hammer-curl":"Dumbbell",
+ "preacher-curl":"Preacher bench / EZ-bar / Machine", "concentration-curl":"Dumbbell",
+ "tricep-pushdown":"Cable", "rope-tricep-pushdown":"Cable", "skull-crushers":"EZ-bar / Dumbbell",
+ "overhead-tricep-extension":"Dumbbell", "close-grip-bench-press":"Barbell / Bench",
+ "tricep-dips":"Parallel bars", "wrist-curl":"Barbell / Dumbbell", "reverse-wrist-curl":"Barbell / Dumbbell",
+ "hanging-leg-raise":"Pull-up bar", "captain-s-chair-knee-raise":"Captain’s chair",
+ "ab-wheel-rollout":"Ab wheel", "russian-twist":"Bodyweight / Weight plate", "pallof-press":"Cable / Band",
+ "suitcase-carry":"Dumbbell / Kettlebell", "assault-bike":"Air bike", "jump-rope":"Skipping rope"
+};
+for(const item of exerciseCatalog){if(equipmentOverrides[item.id])item.equipment=equipmentOverrides[item.id];}
